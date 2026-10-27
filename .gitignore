@@ -1,0 +1,11 @@
+# runtime / local secrets (admin hash, login tokens, AI summary runner)
+data/
+ai-office.log
+ai-office.log.old
+*.tmp
+# 세션 보관함(대화 원문 · 미디어 · 백업) — 절대 커밋하지 않는다
+archive/
+*.aio-tmp
+*.log
+*.log.old
+node_modules/

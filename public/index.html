@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 인공지능 연구원</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧶</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/panels.css">
+<link rel="stylesheet" href="css/manage.css">
+<link rel="stylesheet" href="css/v5.css">
+<link rel="stylesheet" href="css/v6.css">
+<link rel="stylesheet" href="css/kanban.css">
+<link rel="stylesheet" href="css/mgm.css">
+<link rel="stylesheet" href="css/timer-aio.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="office" aria-label="AI 세션 캠퍼스" data-i18n-aria-label></canvas>
+
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">🧶</span>
+      <div class="brand-tx">
+        <div class="name"><span class="name-full" data-i18n>AI 인공지능 연구원</span><span class="name-short" data-i18n>AI 연구원</span><span class="ver-badge" id="verBadge" title="현재 버전 (ai-office-v6 폴더)">v6</span></div>
+        <div class="sub" id="hostLabel">AI 세션 캠퍼스</div>
+      </div>
+      <span id="modeBadge" class="badge">연결 중…</span>
+    </div>
+    <div id="chips" class="chips"></div>
+    <div class="tools">
+      <div class="clock" id="clock">--:--</div>
+      <button class="tbtn side-btn" id="btnSide" title="세션 패널 (S)" data-i18n-title data-i18n-aria-label aria-label="세션 패널 (S)">📋</button>
+      <button class="tbtn" id="btnFit" title="전체 보기 (F)" data-i18n-title>🔍</button>
+      <button class="tbtn" id="btnInsights" title="인사이트 대시보드 (I)" data-i18n-title hidden>📊</button>
+      <div class="tm-mini" id="pomoMini"></div>
+      <div class="dock" id="dock" hidden></div>
+      <button class="set-btn map-btn" id="btnMap" title="맵 선택 — 실내 × 실외 (M)" data-i18n-title>🗺️<span class="lbl" id="mapLbl">맵</span></button>
+      <button class="set-btn" id="btnTheme" title="설정 — 표시·알림 (T)" data-i18n-title>⚙️<span class="lbl" data-i18n>설정</span></button>
+      <button class="set-btn lang-btn" id="btnLang" title="Switch to English" aria-label="Switch to English">EN</button>
+      <button class="set-btn acct-btn" id="btnAcct" title="계정 옵션 — 색 · 글꼴 · 레이아웃 (O)" data-i18n-title>🎨<span class="lbl" data-i18n>계정 옵션</span></button>
+      <button class="auth-btn" id="btnAuth" title="로그인" data-i18n-title>🔒<span class="lbl">로그인</span></button>
+    </div>
+  </header>
+
+  <nav id="floors" hidden></nav>
+
+  <div id="themePop" class="pop" hidden>
+    <button class="close" id="popClose" aria-label="닫기" data-i18n-aria-label>✕</button>
+    <h3>⚙️ <span data-i18n>설정</span></h3>
+    <div class="pop-sec" data-i18n>맵 선택</div>
+    <button class="theme" id="popMapOpen"><span class="ti">🗺️</span><span><b data-i18n>맵 선택 열기</b><small id="popMapCur"></small></span></button>
+    <div class="pop-sec" data-i18n>화면 표시</div>
+    <div id="optList" class="opt-list"></div>
+    <div id="adminSec"></div>
+  </div>
+
+  <div id="mapPop" class="pop map-pop" hidden>
+    <button class="close" id="mapClose" aria-label="닫기" data-i18n-aria-label>✕</button>
+    <h3>🗺️ <span data-i18n>맵 선택</span> <small class="map-hint" data-i18n>실내(건물)와 실외(부지)를 따로 골라 조합해요</small></h3>
+    <div id="mapCur" class="map-cur"></div>
+    <div id="mapOrig" class="map-orig"></div>
+    <div class="map-cols">
+      <div><div class="pop-sec">🏢 <span data-i18n>실내 · 건물</span> <span class="map-n" id="mapInN"></span></div><div id="mapIn" class="map-grid"></div></div>
+      <div><div class="pop-sec">🌳 <span data-i18n>실외 · 부지</span> <span class="map-n" id="mapOutN"></span></div><div id="mapOut" class="map-grid"></div></div>
+    </div>
+  </div>
+
+  <div id="demoBanner" hidden>
+    <b data-i18n>데모 모드</b> <span data-i18n>— 수집기가 꺼져 있어 가상 세션을 보여주고 있어요. 백엔드가 켜지면 이 PC의 실제 AI 세션이 출근합니다.</span>
+    <button id="demoClose" data-i18n>닫기</button>
+  </div>
+
+  <aside id="side">
+    <button class="side-close" id="sideClose" aria-label="닫기" data-i18n-aria-label>✕</button>
+    <section class="card urgent" id="decisionCard">
+      <h3>🙋 <span data-i18n>대표 결정 필요</span> <span class="count" id="decisionCount">0</span><button class="more" data-more="urgent" title="전체 보기">⤢</button></h3>
+      <div id="decisionList" class="list"></div>
+    </section>
+    <section class="card">
+      <h3>👩‍💻 <span data-i18n>지금 일하는 중</span> <span class="count" id="workingCount">0</span><button class="more" data-more="busy" title="전체 보기">⤢</button></h3>
+      <div id="workingList" class="list"></div>
+    </section>
+    <section class="card">
+      <h3>🗂️ <span data-i18n>전체 세션</span> <span class="count" id="allCount">0</span><button class="more" data-more="all" title="전체 보기 · 관리">⤢ <span data-i18n>더보기</span></button></h3>
+      <input class="side-q" id="sideQ" placeholder="🔎 검색" data-i18n-placeholder>
+      <div class="filters" id="filters"></div>
+      <div id="allList" class="list"></div>
+    </section>
+    <section class="card feed-card">
+      <h3>📰 <span data-i18n>사무실 소식</span></h3>
+      <div id="feedList" class="feed"></div>
+    </section>
+  </aside>
+
+  <div id="drawer" hidden>
+    <button class="close" id="drawerClose" aria-label="닫기" data-i18n-aria-label>✕</button>
+    <div id="drawerBody"></div>
+  </div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <div id="timerOverlay" class="tm-ov" hidden><div class="tm-card" id="timerCard" role="dialog" aria-modal="true" aria-label="업무 타이머"></div></div>
+  <nav id="tabbar" aria-label="메뉴">
+    <button data-tab="map">🗺️<span data-i18n>맵</span></button>
+    <button data-tab="side">📋<span data-i18n>세션</span><i class="tb-dot" id="tbDot" hidden></i></button>
+    <button data-tab="manage">🗂️<span data-i18n>관리</span></button>
+    <button data-tab="settings">⚙️<span data-i18n>설정</span></button>
+    <button data-tab="acct">🎨<span data-i18n>계정</span></button>
+  </nav>
+  <div id="ticker"><span class="tk-label">📢<span class="lbl" data-i18n>소식</span></span><div class="tk-track" id="tickerTrack"></div></div>
+  <div id="tooltip" hidden></div>
+  <div id="empty" hidden>
+    <div class="sign">🌙<br><span data-i18n>아직 출근한 AI가 없어요</span><br><small data-i18n>Claude Code · Codex · Gemini CLI 세션을 열면 자리에 앉아요</small></div>
+  </div>
+</div>
+
+<script src="js/providers.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/iso.js"></script>
+<script src="js/art.js"></script>
+<script src="js/art2.js"></script>
+<script src="js/art3.js"></script>
+<script src="js/art4.js"></script>
+<script src="js/art5.js"></script>
+<script src="js/art6.js"></script>
+<script src="js/art7.js"></script>
+<script src="js/art8.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/campus.js"></script>
+<script src="js/interiors2.js"></script>
+<script src="js/campusmap.js"></script>
+<script src="js/mini.js"></script>
+<script src="js/compose.js"></script>
+<script src="js/art_v4.js"></script>
+<script src="js/indoor_base.js"></script>
+<script src="js/outdoor_base.js"></script>
+<!-- 새 실내 · 실외 맵 (v3) -->
+<script src="js/indoor_a.js"></script>
+<script src="js/indoor_b.js"></script>
+<script src="js/outdoor_a.js"></script>
+<script src="js/outdoor_b.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/world.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/detail.js"></script>
+<script src="timer/utils.js"></script>
+<script src="js/kanban.js"></script>
+<script src="js/mgm.js"></script>
+<script src="timer/store-shim.js"></script>
+<script src="js/timer-ui.js"></script>
+<script src="js/prefs.js"></script>
+<script src="js/manage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/viewport.js"></script>
+<script src="js/main.js"></script>
+<script src="js/timer-mount.js"></script>
+</body>
+</html>

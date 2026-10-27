@@ -1,0 +1,118 @@
+/* v5: 계정 옵션(테마·글꼴·크기·레이아웃) · 관리 도구 독 · 모바일 하단 탭바 */
+
+/* UI 크기 · 사이드바 폭 */
+#topbar, #side, #drawer, .pop, #floors, .modal-card, #mgr .mg-card, #ticker, #tabbar { zoom: var(--ui-zoom, 1); }
+#side { width: var(--side-w, 300px); }
+.btn, .theme.on, .map-card.on { --x: 0; }
+
+/* 관리 도구 독 (상단, 로그인 시) */
+.dock { display: flex; gap: 2px; padding-right: 4px; margin-right: 2px; border-right: 1px solid var(--line); }
+.dock-btn { border: none; background: transparent; border-radius: 10px; padding: 6px 8px; cursor: pointer; font-size: 15px; display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+.dock-btn:hover { background: var(--bg2); }
+.dock-btn .lbl { font-size: 12px; }
+@media (max-width: 1500px) { .dock-btn .lbl, .acct-btn .lbl { display: none; } }
+
+/* 간격 · 카드 스타일 · 숨김 옵션 */
+body.compact .card { padding: 8px; }
+body.compact #side { gap: 6px; }
+body.compact .item { padding: 4px 6px; min-height: 0; }
+body.compact .chip { padding: 4px 9px; }
+body.no-ticker #ticker { display: none; }
+body.no-ticker #side { bottom: 12px; }
+body.no-chips .chips { display: none; }
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation: none !important; transition: none !important; }
+body.card-solid .card, body.card-solid .pop, body.card-solid #drawer, body.card-solid .brand, body.card-solid .tools { backdrop-filter: none; }
+body.card-outline .card, body.card-outline .pop, body.card-outline #drawer, body.card-outline .brand, body.card-outline .tools { box-shadow: none; border: 1.5px solid var(--line); }
+
+/* 계정 옵션 창 */
+.modal-card.pf-card { width: 1080px; }
+.pf h2 { margin: 0 0 8px; font-family: var(--cute); font-weight: normal; }
+.pf-acct { background: var(--bg2); border-radius: 12px; padding: 8px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.pf-acct small { color: var(--ink2); }
+.pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.pf-grid section { background: var(--bg2); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.pf-grid h3 { margin: 4px 0 2px; font-family: var(--cute); font-weight: normal; font-size: 15px; }
+.pf-row { display: flex; flex-direction: column; gap: 4px; }
+.pf-l { font-size: 11px; color: var(--ink2); }
+.pf-c select { border: 1px solid var(--line); border-radius: 8px; padding: 5px; background: var(--card); color: var(--ink); width: 100%; }
+.pf-seg { display: inline-flex; background: var(--card); border-radius: 99px; padding: 2px; gap: 2px; flex-wrap: wrap; }
+.pf-seg button { border: none; background: transparent; border-radius: 99px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--ink); }
+.pf-seg button.on { background: var(--accent); color: #fff; }
+.pf-sws { display: flex; gap: 12px 10px; flex-wrap: wrap; align-items: center; }
+.pf-sw { width: 28px; height: 28px; border-radius: 9px; border: 2px solid var(--line); background: var(--c); cursor: pointer; position: relative; padding: 0; }
+.pf-sw span { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%); font-size: 9px; color: var(--ink2); white-space: nowrap; pointer-events: none; }
+.pf-sws:has(span) { padding-bottom: 14px; }
+.pf-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent); }
+.pf-sws input[type=color] { width: 30px; height: 30px; border-radius: 9px; border: none; background: none; cursor: pointer; padding: 0; }
+.pf-range { display: flex; gap: 8px; align-items: center; }
+.pf-range input { flex: 1; accent-color: var(--accent); }
+.pf-range b { font-size: 12px; min-width: 44px; text-align: right; }
+.pf-togs { display: flex; flex-direction: column; gap: 4px; }
+.pf-tog { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+.pf-tog input { accent-color: var(--accent); width: 16px; height: 16px; }
+.pf-preview { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pf-preview .btn { align-self: flex-start; }
+.pf-foot { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+
+/* 모바일 하단 탭바 (데스크톱에선 숨김) */
+#tabbar { display: none; }
+@media (max-width: 760px) {
+  #tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 16; padding: 6px calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+    background: var(--card); backdrop-filter: blur(12px); box-shadow: 0 -6px 20px rgba(0,0,0,.14); border-radius: 18px 18px 0 0; }
+  #tabbar button { border: none; background: none; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 20px; padding: 4px 0; border-radius: 12px; position: relative; cursor: pointer; color: var(--ink); }
+  #tabbar button span { font-size: 10.5px; }
+  #tabbar button:active { background: var(--bg2); }
+  .tb-dot { position: absolute; top: 2px; right: 26%; width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
+  /* 상단은 브랜드 · 언어 · 로그인만 (맵 · 설정 · 계정 · 관리는 탭바로) */
+  #btnMap, #btnTheme, #btnAcct, .dock, #btnInsights, #btnSide { display: none !important; }
+  #ticker { bottom: calc(66px + env(safe-area-inset-bottom)); height: 30px; }
+  body.no-ticker #floors { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #floors { bottom: calc(104px + env(safe-area-inset-bottom)) !important; }
+  #side { bottom: calc(60px + env(safe-area-inset-bottom)); height: min(66vh, 560px); z-index: 15; }
+  #side.hidden { transform: translateY(calc(100% + 90px)); }
+  #side .side-q { font-size: 14px; padding: 8px 10px; }
+  #drawer, #drawer.wide { z-index: 18; }
+  .pop { z-index: 20; max-height: calc(100% - 150px); }
+  .map-pop { bottom: calc(66px + env(safe-area-inset-bottom)); top: auto !important; }
+  .card h3 .more { padding: 4px 10px; font-size: 13px; }
+  .it-btn { padding: 6px 8px; font-size: 15px; }
+  /* 계정 옵션 · 관리 센터: 한 열 */
+  .pf-grid { grid-template-columns: 1fr; }
+  .modal-card.pf-card { width: 100%; }
+  .mg-head { flex-wrap: wrap; gap: 6px; padding: 10px; }
+  .mg-tabs { order: 3; width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  .mg-tabs button { flex: none; }
+  .mg-body { padding: 8px 10px; }
+  .mg-table thead { display: none; }
+  .mg-table tr { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .mg-table td { border: none; padding: 1px 0; }
+  .mg-table td:first-child { grid-row: span 2; }
+  .mg-table td.mg-acts { grid-column: 1 / -1; }
+  .mg-acts button { padding: 6px 9px; font-size: 15px; }
+  .mg-search { min-width: 0; width: 100%; }
+  .ar-msg { max-width: 100%; }
+}
+@media (min-width: 761px) and (max-width: 1180px) { .dock-btn { padding: 6px 5px; } }
+
+/* v6: 오류 표시 · 연동 화면 · 지갑/상점 · 스크롤바 */
+.mg-err { background: #ffe9e6; color: #8a2b22; border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.6; }
+.ad-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+.ad-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ad-col.wide { grid-column: 1 / -1; }
+.wh { background: var(--card); border-radius: 12px; padding: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; }
+.wh-cols label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--ink2); }
+.wh-cols .mg-in { width: 110px; }
+.mg-wallet summary { cursor: pointer; font-size: 12px; }
+.mg-wallet summary b { color: var(--accent); font-size: 14px; }
+.mg-wallet small { color: var(--ink2); }
+.mg-owned { font-size: 18px; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.mg-owned small { font-size: 11px; }
+.shop-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 3px 0; }
+.shop-it { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 2px 6px; cursor: pointer; font-size: 16px; display: inline-flex; flex-direction: column; align-items: center; color: var(--ink); }
+.shop-it small { font-size: 9.5px; color: var(--ink2); }
+.shop-it:hover { border-color: var(--accent); }
+.mg-scroll, .feed, .list, #side, .pop, #drawer, .modal-card { scrollbar-color: var(--line) transparent; }
+.mg-scroll::-webkit-scrollbar, .feed::-webkit-scrollbar, .list::-webkit-scrollbar { width: 8px; height: 8px; }
+.mg-scroll::-webkit-scrollbar-thumb, .feed::-webkit-scrollbar-thumb, .list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+.mg-scroll::-webkit-scrollbar-track, .feed::-webkit-scrollbar-track, .list::-webkit-scrollbar-track { background: transparent; }
+@media (max-width: 760px) { .ad-grid { grid-template-columns: 1fr; } }

@@ -1,0 +1,67 @@
+/* v6: 칸반(FlowBoard) · 업무타이머 창 · 상단 미니 타이머 */
+
+/* 칸반 스타일은 css/kanban.css 로 옮겼어요 */
+
+/* ---------------------------------------------------------------- v6 레이아웃: 상단바 실제 높이(--top-h)·하단 소식줄(--bot-h) 기준
+   (zoom 이 걸린 요소는 위치값도 확대되므로 UI 크기로 나눠 준다) */
+@media (min-width: 761px) {
+  #side, #drawer, #demoBanner { top: calc((var(--top-h, 62px) + 10px) / var(--ui-zoom, 1)); }
+  #side, #drawer { bottom: calc((var(--bot-h, 42px) + 10px) / var(--ui-zoom, 1)); }
+  /* 층 이동: 위아래 남는 공간 안에서 가운데 — 넘치면 위아래 끝까지 꽉 채우고 층 목록만 안에서 스크롤 */
+  #floors { top: calc((var(--top-h, 62px) + 10px) / var(--ui-zoom, 1)); bottom: calc((var(--bot-h, 42px) + 10px) / var(--ui-zoom, 1)); transform: none; max-height: none; overflow: hidden; justify-content: center; }
+  #floors > .nav-b { flex: none; }
+  #floors > .elev-panel { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
+  #floors > .elev-panel::-webkit-scrollbar { display: none; }
+  .elev-panel .ep-floor, .elev-panel .ep-arrow, .elev-panel .ep-title, .elev-panel .ep-cur { flex: none; }
+  .ep-cur i { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ep-cur:hover i { -webkit-line-clamp: unset; }
+}
+/* 중간 폭(태블릿 · 작은 노트북 · 확대 배율): 패널을 조금 좁히고 상태 칩이 패널 밑으로 숨지 않게 */
+@media (min-width: 761px) and (max-width: 1180px) {
+  #side { width: min(var(--side-w, 300px), 34vw); }
+  .chips { padding-right: 0; }
+  .brand .sub { display: none; }
+  #drawer { width: min(360px, 44vw); }
+  #drawer.wide { width: min(560px, 60vw); }
+  body.drawer-open #floors { left: calc(min(360px, 44vw) + 24px); }
+  body.drawer-wide #floors { left: calc(min(560px, 60vw) + 24px); }
+}
+@media (min-width: 761px) and (max-width: 980px) {
+  #floors { width: 92px; }
+  .ep-cur { display: none; }
+  .ep-floor { grid-template-columns: 34px auto; justify-content: space-between; }
+  .ep-floor span { display: none; }
+  .ep-floor em { grid-column: 2; }
+  .nav-b button { font-size: 12px; padding: 5px 6px; }
+  .tools { flex-wrap: wrap; }
+}
+
+/* 글자색 옵션: 링크 · 제목 · 태그 (계정 옵션 › 테마 · 색 › 글자색) */
+#drawer a, #side a, .pop a, #mgr a, .modal-card a, .detail a { color: var(--link, #2f62c9); text-decoration-color: color-mix(in srgb, var(--link, #2f62c9) 45%, transparent); text-underline-offset: 2px; }
+#drawer a:hover, #side a:hover, .pop a:hover, #mgr a:hover, .modal-card a:hover { filter: brightness(1.15); }
+#drawer dd, #drawer dt { color: var(--ink); }
+#drawer dt { color: var(--ink2); }
+.card h3, #drawer h2, #drawer h3, .modal-card h2, .modal-card h3, .mg-card h2, .mg-card h3, .pf h2, .pf h3 { color: var(--head, var(--ink)); }
+.pf-sub { font-size: 11px; color: var(--ink2); margin: 8px 0 2px; }
+.pf-cv { font-size: 12px; padding: 0 6px; }
+
+/* 월급제: 세션 상세 › 💵 급여 */
+.mg-pay summary small { color: var(--ink2); font-size: 11px; }
+.mg-paygrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+.mg-paygrid div { background: var(--bg2); border-radius: 10px; padding: 6px; text-align: center; }
+.mg-paygrid small { display: block; font-size: 10px; color: var(--ink2); }
+.mg-paygrid b { font-family: var(--cute); font-weight: normal; font-size: 16px; }
+.mg-paytbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mg-paytbl th { text-align: left; font-weight: normal; color: var(--ink2); padding: 3px 6px 3px 0; white-space: nowrap; }
+.mg-paytbl td { padding: 3px 0; }
+.mg-slips { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.mg-slip { display: grid; grid-template-columns: 86px 1fr auto auto; gap: 8px; align-items: center; font-size: 12px; background: var(--bg2); border-radius: 8px; padding: 4px 8px; }
+.mg-slip b { color: #2fb27f; }
+@media (max-width: 480px) { .mg-paygrid { grid-template-columns: repeat(2, 1fr); } }
+
+/* 캐릭터 인적사항 */
+.d-persona { font-size: 12px; color: var(--ink2); margin: 2px 0 3px; }
+.d-persona b { color: var(--ink); font-size: 13px; }
+.mg-persona .mg-pz { display: inline-flex; gap: 5px; align-items: baseline; min-width: 0; }
+.mg-persona .mg-pz small { color: var(--ink2); font-size: 11px; }
+.mg-persona select.mg-in { max-width: 130px; }
