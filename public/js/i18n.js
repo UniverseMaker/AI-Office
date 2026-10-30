@@ -62,6 +62,8 @@ window.AIO = window.AIO || {};
     '전체 보기 (F)': 'Fit view (F)',
     '인사이트 대시보드 (I)': 'Insights dashboard (I)',
     '설정 — 표시·알림 (T)': 'Settings — display & alerts (T)',
+    '표시 · 알림': 'Display · Alerts', '맵에 보이는 것 · 알림': 'On the map · Alerts', '색 · 글꼴 · 크기는 계정 옵션에서': 'Colors, fonts & sizes are in Account options',
+    '맵 · 설정 — 실내 × 실외 · 표시 · 알림 (M · T)': 'Map & settings — indoor × outdoor · display · alerts (M · T)',
     '세션 패널 (S)': 'Session panel (S)',
     '설정': 'Settings',
     '로그인': 'Log in',
@@ -282,7 +284,7 @@ window.AIO = window.AIO || {};
       each('data-i18n-' + a, (el, src) => { if (!src) { src = el.getAttribute(a) || ''; el.setAttribute('data-i18n-' + a, src); } el.setAttribute(a, tr(src)); });
     }
     if (root === document) {
-      document.title = tr('AI 인공지능 연구원');
+      // 헤더 제목 · 탭 제목 · 파비콘은 brand.js 가 (aio:lang 을 듣고) 맞춘다
       const b = document.getElementById('btnLang');
       if (b) { b.textContent = lang === 'en' ? '한' : 'EN'; b.title = lang === 'en' ? '한국어로 보기' : 'Switch to English'; b.setAttribute('aria-label', b.title); }
     }

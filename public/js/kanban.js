@@ -269,9 +269,10 @@
     h += `<button class="btn ghost sm" data-kb="reload" title="${esc(tr('새로고침'))}">↻</button><button class="btn ghost sm ${K.setOpen ? 'on' : ''}" data-kb="settings">⚙️ <span class="kb-hide-s">${tr('연동 설정')}</span></button><span class="mg-n">${tr('{0} / {1}장', shown, K.list.length)}</span></div>`;
     // 필터 · 보기 줄
     h += `<div class="kb-filters${K.fOpen ? ' open' : ''}">`;
-    h += `<label class="kb-fl">${tr('스윔레인')} <select data-kbsel="group">${GROUPS.map(([v, l]) => `<option value="${v}" ${V.group === v ? 'selected' : ''}>${tr(l)}</option>`).join('')}</select></label>`;
-    h += `<span class="kb-fl">${tr('에픽 카드')} ${seg('epics', [['hide', '숨기기'], ['all', '보기'], ['only', '에픽만']], V.epics)}</span>`;
-    h += `<span class="kb-fl">${tr('카드 크기')} ${seg('density', DENS, V.density)}</span>`;
+    h += `<label class="kb-fl" title="${esc(tr('스윔레인'))}">${tr('레인')} <select data-kbsel="group">${GROUPS.map(([v, l]) => `<option value="${v}" ${V.group === v ? 'selected' : ''}>${tr(l)}</option>`).join('')}</select></label>`;
+    if (V.group !== 'none') h += tog('hideEmpty', '빈 레인 숨김');
+    h += `<span class="kb-fl">${tr('에픽')} ${seg('epics', [['hide', '숨기기'], ['all', '보기'], ['only', '에픽만']], V.epics)}</span>`;
+    h += `<span class="kb-fl">${tr('크기')} ${seg('density', DENS, V.density)}</span>`;
     h += `<span class="kb-sep"></span>`;
     h += K.me ? tog('mine', '🙋 내 일만') : `<button class="mg-act" disabled title="${esc(tr('내 계정 정보를 불러오지 못했어요'))}">🙋 ${tr('내 일만')}</button>`;
     const us = userList();
@@ -279,8 +280,7 @@
     h += `<select data-kbsel="type" aria-label="${esc(tr('유형'))}"><option value="">${tr('유형 전체')}</option>${TYPES.map(([id]) => `<option value="${id}" ${V.type === id ? 'selected' : ''}>${esc(typeInfo(id).ko)}</option>`).join('')}</select>`;
     h += `<select data-kbsel="prio" aria-label="${esc(tr('우선순위'))}"><option value="">${tr('우선순위 전체')}</option>${K.priorities.map((p) => `<option value="${esc(String(p.id))}" ${V.prio === String(p.id) ? 'selected' : ''}>${esc(prioName(p.id))}</option>`).join('')}</select>`;
     if (K.labels.length) h += `<select data-kbsel="label" aria-label="${esc(tr('라벨'))}"><option value="">${tr('라벨 전체')}</option>${K.labels.map((l) => `<option value="${esc(String(l.id))}" ${V.label === String(l.id) ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select>`;
-    h += tog('hideDone', '✔ 완료 숨기기') + tog('ai', '🤖 AI 세션 연결된 카드만', 'AI OFFICE 세션과 연결된 카드만 보여요');
-    if (V.group !== 'none') h += tog('hideEmpty', '빈 레인 숨기기');
+    h += tog('hideDone', '✔ 완료 숨기기') + tog('ai', '🤖 AI 연결만', 'AI OFFICE 세션과 연결된 카드만 보여요');
     if (nf) h += `<button class="mg-act kb-reset" data-kb="reset">✕ ${tr('필터 초기화')}</button>`;
     return h + `</div>`;
   }

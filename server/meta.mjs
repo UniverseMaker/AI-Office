@@ -16,12 +16,14 @@ function save() {
 
 export const DEFAULT_SETTINGS = {
   archiveAuto: true, archiveEveryMin: 2, archiveMedia: true,
+  allSessions: true, allSessionsDays: 0, allSessionsArchived: false,   // 모든 계정의 모든 대화를 늘 보이게 (돌고 있지 않아도) · 최근 며칠만(0=전부) · Desktop 에서 보관한 대화도
   rankScheme: 'academic', rankCustom: '',          // 직급 체계: academic(방문자~교수) · corporate(사원~부장) · custom(쉼표로)
   disclosureDefault: {},                           // 등급 계정 기본 공개 정책 { 항목: 최소 등급 } — 비어 있으면 전부 관리자만
   econRate: 1, econAuto: true,                     // 사내 재화: 일한 1분당 코인 · 자동 소비
   webhooks: [],                                    // 칸반 연동 웹훅 [{ id, name, url, secret, enabled, events, columns, headers }]
   tcc: null,                                       // FlowBoard(TCC) 칸반 연동 설정 (토큰은 data/secrets.json)
   payOn: true, payBase: 3000, payStep: 8, payRaise: 5, payYearDays: 7,   // 월급제: 기본 월급 · 레벨당 +% · 근속 1년당 인상% · 근속 1년 = 실제 며칠
+  bankLoanRate: 1.5, bankLateAdd: 1, bankDepositRate: 0.1, bankLimitMonths: 6, bankAutoRepay: 30, bankJail: false, bankCredit: true, companyPays: true,   // 은행 · 회사 자금
   personaAuto: true,                               // 이름 · 국적을 정하지 않은 세션도 자동으로 사람처럼 (세션마다 늘 같은 인물)
   mgm: null,                                       // 행정관리(MGM) 연동 설정 { base, externalWrite } — 토큰은 계정 금고에
 };
@@ -104,10 +106,10 @@ export function setPrefs(p, user = 'admin') {
 
 // ---------------------------------------------------------------- API keys (업무관리시스템 등 외부 연동)
 const hashKey = (k) => crypto.createHash('sha256').update(k).digest('hex');
-/** scope: full(읽기·메타 수정·보관함) · read(읽기만) · transfer(세션 전송 — 대화 원문 내려받기만) */
+/** scope: full(읽기·메타 수정·보관함) · read(읽기만) · transfer(세션 전송 — 대화 원문 내려받기만) · sync(세션 동기화 — 내려받기 + 다른 컴퓨터에서 이어 쓴 대화 올려 합치기) */
 export function createKey(name, scope = 'full') {
   const key = 'aio_' + crypto.randomBytes(24).toString('hex');
-  const rec = { id: crypto.randomBytes(6).toString('hex'), name: String(name || '연동 키').slice(0, 60), hash: hashKey(key), created: Date.now(), last: 0, prefix: key.slice(0, 10), scope: ['full', 'read', 'transfer'].includes(scope) ? scope : 'full' };
+  const rec = { id: crypto.randomBytes(6).toString('hex'), name: String(name || '연동 키').slice(0, 60), hash: hashKey(key), created: Date.now(), last: 0, prefix: key.slice(0, 10), scope: ['full', 'read', 'transfer', 'sync'].includes(scope) ? scope : 'full' };
   db.keys.push(rec); save();
   return { ...rec, hash: undefined, key };            // 원문 키는 이때 한 번만 보여 준다
 }

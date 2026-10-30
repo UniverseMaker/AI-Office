@@ -29,6 +29,7 @@ export class Webhooks {
       const col = columnOf(s), was = this.prev.get(s.id);
       this.prev.set(s.id, col);
       if (was === undefined && !this.primed) continue;          // 서버 켤 때 한꺼번에 쏘지 않는다
+      if (was === undefined && s.dormant) continue;            // 전체 보기로 들어온 쉬던 대화는 '새 세션' 이 아니다
       if (was !== col) for (const h of hooks) this.enqueue(h, was === undefined ? 'session.created' : 'session.moved', s, col, was);
     }
     for (const [id, was] of this.prev) if (!seen.has(id)) { this.prev.delete(id); for (const h of hooks) this.enqueue(h, 'session.closed', { id }, 'closed', was); }

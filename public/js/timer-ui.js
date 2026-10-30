@@ -13,7 +13,7 @@
   const LS_LIVE = 'fb_pomo_live';
   const LS_UI = 'aio.timer.ui';
   const PH = {
-    work: { key: 'work', label: '집중', emoji: '🍅', kind: 'focus', minKey: 'workMin', def: 25 },
+    work: { key: 'work', label: '집중', emoji: '🎯', kind: 'focus', minKey: 'workMin', def: 25 },
     short: { key: 'short', label: '짧은 휴식', emoji: '☕', kind: 'break', minKey: 'shortMin', def: 5 },
     long: { key: 'long', label: '긴 휴식', emoji: '🌿', kind: 'break', minKey: 'longMin', def: 15 },
   };
@@ -151,8 +151,8 @@
   }
   function announce(done, next) {
     const d = phaseOf(done), n = phaseOf(next);
-    const title = d.kind === 'focus' ? '🍅 집중 끝! 수고했어요' : `${d.emoji} 휴식 끝! 다시 집중해 볼까요`;
-    const body = d.kind === 'focus' ? `이제 ${n.emoji} ${n.label} ${minOf(n.key)}분이에요` : `🍅 집중 ${minOf('work')}분을 시작해요`;
+    const title = d.kind === 'focus' ? '🎯 집중 끝! 수고했어요' : `${d.emoji} 휴식 끝! 다시 집중해 볼까요`;
+    const body = d.kind === 'focus' ? `이제 ${n.emoji} ${n.label} ${minOf(n.key)}분이에요` : `🎯 집중 ${minOf('work')}분을 시작해요`;
     playAlarm(); desktop(title, body); flashTitle(d.kind === 'focus' ? '✅ 집중 끝!' : '⏰ 휴식 끝!'); toast(`${title} · ${body}`);
   }
 
@@ -341,7 +341,7 @@
     const btns = pageMode
       ? '<a class="tm-hbtn" href="./" title="AI OFFICE 사무실로 돌아가기">🏢 <span>사무실로</span></a>'
       : '<a class="tm-hbtn" href="timer.html" target="_blank" rel="noopener" title="타이머만 새 창으로 열기 (기록은 같이 저장돼요)">🗗 <span>새 창</span></a><button type="button" class="mg-x tm-x" data-act="close" aria-label="닫기" title="닫기 (Esc)">✕</button>';
-    return `<header class="tm-head"><span class="tm-logo">⏱️</span><div class="tm-htx"><h2>업무 타이머</h2><small>오늘 🍅 <b>${st.todayDone}${goal}</b> · 집중 <b>${fmtMin(st.todayMin)}</b>${st.streak ? ` · 🔥 ${st.streak}일 연속` : ''}</small></div><div class="tm-hbtns">${btns}</div></header>`;
+    return `<header class="tm-head"><span class="tm-logo">⏱️</span><div class="tm-htx"><h2>업무 타이머</h2><small>오늘 🎯 <b>${st.todayDone}${goal}</b> · 집중 <b>${fmtMin(st.todayMin)}</b>${st.streak ? ` · 🔥 ${st.streak}일 연속` : ''}</small></div><div class="tm-hbtns">${btns}</div></header>`;
   }
 
   function timerHtml() {
@@ -445,7 +445,7 @@
 
   function rowHtml(s) {
     const p = PH[s.type], f = isFocus(s);
-    const label = p ? p.label : s.typeLabel || (f ? '집중' : '휴식'), emoji = p ? p.emoji : f ? '🍅' : '☕';
+    const label = p ? p.label : s.typeLabel || (f ? '집중' : '휴식'), emoji = p ? p.emoji : f ? '🎯' : '☕';
     const cls = p ? p.key : f ? 'work' : 'short';
     const min = Math.round((+s.actualSec || 0) / 60);
     const card = s.issueId != null ? `<button type="button" class="tm-key" data-act="open-card" data-key="${esc(s.issueId)}" title="칸반 카드 열기">${esc(s.issueId)}</button>` : '';
@@ -470,8 +470,8 @@
     return `<section class="tm-box tm-log">
       <div class="tm-boxh"><h3>🗓️ 기록</h3>
         <div class="tm-datenav"><button type="button" data-act="day" data-d="-1" aria-label="이전 날">‹</button><b>${dateLabel(ui.date)}</b><button type="button" data-act="day" data-d="1" aria-label="다음 날" ${isToday ? 'disabled' : ''}>›</button>${isToday ? '' : '<button type="button" class="tm-today" data-act="day" data-d="0">오늘</button>'}</div></div>
-      <div class="tm-logsum">🍅 집중 <b>${fr.filter((s) => s.completed).length}</b>번 완료 · <b>${fmtMin(fmin)}</b>${dis ? ` · 🙈 딴짓 <b>${dis}</b>번` : ''}</div>
-      <div class="tm-rows">${rows.length ? rows.map(rowHtml).join('') : `<div class="tm-empty center">${isToday ? '오늘은 아직 기록이 없어요. 🍅 첫 집중을 시작해 볼까요?' : '이 날은 기록이 없어요.'}</div>`}</div>
+      <div class="tm-logsum">🎯 집중 <b>${fr.filter((s) => s.completed).length}</b>번 완료 · <b>${fmtMin(fmin)}</b>${dis ? ` · 🙈 딴짓 <b>${dis}</b>번` : ''}</div>
+      <div class="tm-rows">${rows.length ? rows.map(rowHtml).join('') : `<div class="tm-empty center">${isToday ? '오늘은 아직 기록이 없어요. 🎯 첫 집중을 시작해 볼까요?' : '이 날은 기록이 없어요.'}</div>`}</div>
     </section>`;
   }
 
@@ -485,7 +485,7 @@
       <summary><h3>⚙️ 타이머 설정</h3><small>시간 · 목표 · 자동 시작 · 소리</small></summary>
       <div class="tm-set-body">
         <div class="tm-set-grid">
-          ${num('workMin', '🍅 집중', 1, 180, '분')}${num('shortMin', '☕ 짧은 휴식', 1, 60, '분')}${num('longMin', '🌿 긴 휴식', 1, 120, '분')}
+          ${num('workMin', '🎯 집중', 1, 180, '분')}${num('shortMin', '☕ 짧은 휴식', 1, 60, '분')}${num('longMin', '🌿 긴 휴식', 1, 120, '분')}
           ${num('cyclesPerLong', '긴 휴식 주기 · 집중', 1, 12, '번마다')}${num('dailyGoal', '🎯 하루 목표', 0, 50, '번')}
         </div>
         <div class="tm-set-checks">
@@ -671,7 +671,8 @@
   if (page) {
     try {
       const P = JSON.parse(localStorage.getItem('aio.prefs') || '{}') || {};
-      if (P.theme === 'dark' || P.theme === 'light') document.documentElement.setAttribute('data-theme', P.theme);
+      const th = P.theme === 'dark' || P.theme === 'light' ? P.theme : P.themeV === 2 ? null : 'light';   // 기본은 라이트
+      if (th) document.documentElement.setAttribute('data-theme', th);
       if (typeof P.accent === 'string' && /^#[0-9a-f]{3,8}$/i.test(P.accent)) document.documentElement.style.setProperty('--accent', P.accent);
     } catch (e) {}
     init(); mountPanel(page, { page: true });

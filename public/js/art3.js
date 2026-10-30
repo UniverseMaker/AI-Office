@@ -280,13 +280,14 @@
 
   function entrance(ctx, f, open) {
     const { x, y, w } = f;
-    const H = 58;
-    onPlaneY(ctx, x, y, H, (g) => {
+    const H = 58, top = Math.max(H, f.h || H), L = top - H;   // 옆벽이 문보다 높으면(옥상 엘리베이터실 82) 문 위를 같은 벽으로 막는다
+    onPlaneY(ctx, x, y, top, (g) => {
       const Wl = w * 32, half = Wl / 2, s = half * 0.9 * open;
-      g.fillStyle = '#6d757c'; g.fillRect(-3, 0, Wl + 6, 5);
-      g.fillStyle = 'rgba(190,220,240,0.28)'; g.fillRect(0 - s, 5, half, H - 5); g.fillRect(half + s, 5, half, H - 5);
-      g.strokeStyle = 'rgba(110,130,145,0.6)'; g.lineWidth = 1; g.strokeRect(0 - s, 5, half, H - 5); g.strokeRect(half + s, 5, half, H - 5);
-      g.fillStyle = '#f6d58a'; g.font = `4px ${FONT}`; g.fillText('자동문 · AUTO', 4, 3.8);
+      if (L > 0) { g.fillStyle = f.color || '#e6e0d6'; g.fillRect(-3, 0, Wl + 6, L); g.fillStyle = 'rgba(0,0,0,0.06)'; g.fillRect(-3, L - 2, Wl + 6, 2); }
+      g.fillStyle = '#6d757c'; g.fillRect(-3, L, Wl + 6, 5);
+      g.fillStyle = 'rgba(190,220,240,0.28)'; g.fillRect(0 - s, L + 5, half, H - 5); g.fillRect(half + s, L + 5, half, H - 5);
+      g.strokeStyle = 'rgba(110,130,145,0.6)'; g.lineWidth = 1; g.strokeRect(0 - s, L + 5, half, H - 5); g.strokeRect(half + s, L + 5, half, H - 5);
+      g.fillStyle = '#f6d58a'; g.font = `4px ${FONT}`; g.textAlign = 'center'; g.fillText('자동문 · AUTO', Wl / 2, L + 3.8); g.textAlign = 'left';
     });
   }
 

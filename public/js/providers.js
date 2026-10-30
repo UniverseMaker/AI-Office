@@ -14,8 +14,11 @@ AIO.PROVIDERS = {
   ollama:     { label: 'Ollama',     short: 'O', yarn: '#fbfaf6', accent: '#555555', accent2: '#d6d0c4', hats: ['ears'],                         logo: '🦙' },
   lmstudio:   { label: 'LM Studio',  short: 'M', yarn: '#f3f0fb', accent: '#5a4fcf', accent2: '#b7b0f0', hats: ['headphones'],                   logo: '◈' },
   grok:       { label: 'Grok',       short: 'Z', yarn: '#ededed', accent: '#111111', accent2: '#777777', hats: ['shades'],                       logo: '✕' },
+  custom:     { label: '직원',       short: 'H', yarn: '#f6efe4', accent: '#e2667f', accent2: '#f6b8c4', hats: ['beanie', 'beret', 'cap'],      logo: '🧑' },
   generic:    { label: 'AI',         short: 'A', yarn: '#f3efe8', accent: '#8b7d6b', accent2: '#cbbfae', hats: ['beanie'],                       logo: '●' },
 };
+/** 캐릭터 이름을 지금 화면 언어로 (한자 · 라틴 이름 → 한글, 한글 이름 → 로마자) */
+AIO.pname = (p) => (p ? (AIO.lang === 'en' ? p.nameEn || p.name : p.nameKo || p.name) || '' : '');
 AIO.provider = (p) => AIO.PROVIDERS[p] || { ...AIO.PROVIDERS.generic, label: p || 'AI' };
 
 AIO.STATUS = {

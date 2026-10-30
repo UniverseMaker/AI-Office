@@ -25,8 +25,9 @@ const SCRYPT = { N: 16384, r: 8, p: 1 };
 const KEYLEN = 64;
 const MAX_FAILS = 5;
 const LOCK_MS = 30e3;
-export const SELF_ORIGINS = new Set(['http://127.0.0.1:17777', 'http://localhost:17777']);
-const SELF_HOSTS = new Set(['127.0.0.1:17777', 'localhost:17777']);
+import { SELF_ORIGINS as SO, SELF_HOSTS as SH } from './config.mjs';
+export const SELF_ORIGINS = new Set(SO);
+const SELF_HOSTS = new Set(SH);
 
 let auth = readJSON(AUTH_FILE);
 let tokens = loadTokens();

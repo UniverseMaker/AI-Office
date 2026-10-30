@@ -691,8 +691,16 @@
           g.textAlign = 'left';
           continue;
         }
+        const HC = info.heat || {}, FX = HC.fx || {}, hv = fl.heat || 0, sp = HC.speed || 1;
+        const HEAT = ['', 'rgba(255,220,130,0.92)', 'rgba(255,172,72,0.94)', 'rgba(255,104,70,0.96)'];
         const winC = (i) => {
           if (fl.urgent && Math.sin(t * 6 + i * 0.3) > 0) return 'rgba(255,90,80,0.85)';
+          if (hv) {
+            if (FX.rainbow && hv >= 2) return `hsla(${(i * 28 + k * 47 + t * 140 * sp) % 360},85%,62%,0.92)`;          // 🌈 무지개
+            if (FX.wave && hv >= 2) { const pos = (t * 7 * sp + k * 3) % (len + 6) - 3; if (Math.abs(i - pos) < 1.6) return 'rgba(255,255,235,0.98)'; }   // 🌊 흐르는 불빛
+            if (FX.blink && hv >= 3 && Math.sin(t * 5 * sp + k) < -0.2) return night ? 'rgba(60,40,30,0.85)' : 'rgba(150,120,90,0.6)';   // 💡 깜빡임
+            if (FX.tint) return HEAT[hv];                                                                                   // 🔥 단계별 불빛
+          }
           if (lit) return (i * 7 + k * 3) % 5 === 0 ? 'rgba(255,240,200,0.65)' : 'rgba(255,226,150,0.9)';
           return night ? 'rgba(40,52,80,0.85)' : (F && F.winColor) || 'rgba(205,226,240,0.75)';
         };
@@ -723,6 +731,15 @@
           }
         }
         if (fl.tag && south) { g.fillStyle = 'rgba(43,38,34,0.55)'; roundRect(g, 6, top + 8, 22, 12, 3); g.fill(); g.fillStyle = '#fff'; g.font = `7px ${FONT}`; g.fillText(fl.tag, 8, top + 17); }
+        if (hv && FX.neon) {                                                                                               // ✨ 네온 띠
+          const NEON = ['', '#ffd36b', '#ff9a3c', '#ff4f4f'], a = 0.55 + 0.45 * Math.sin(t * 3 * sp + k);
+          g.save(); g.globalAlpha = a; g.shadowColor = NEON[hv]; g.shadowBlur = 6 + hv * 3; g.fillStyle = NEON[hv]; g.fillRect(2, top + FP - 6, Wpx - 4, 2.5); g.restore();
+        }
+        if (hv && FX.count && south && fl.people) {                                                                         // 👥 인원 숫자
+          const txt = `👥 ${fl.people}`; g.font = `bold 8px ${FONT}`; const tw = g.measureText(txt).width + 10;
+          g.fillStyle = ['', 'rgba(200,150,40,0.9)', 'rgba(226,120,30,0.92)', 'rgba(220,60,50,0.95)'][hv]; roundRect(g, Wpx - tw - 6, top + 8, tw, 12, 6); g.fill();
+          g.fillStyle = '#fff'; g.fillText(txt, Wpx - tw - 1, top + 17);
+        }
         g.fillStyle = (F && F.trim) || (dark ? '#c9c4bb' : '#dcd7ce'); g.fillRect(0, top + FP - 3, Wpx, 3);
       }
       g.fillStyle = (F && F.trim) ? shade(F.trim, -0.1) : dark ? '#b8b2a8' : '#cfc9bf'; g.fillRect(0, 0, Wpx, 4);

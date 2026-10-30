@@ -1,5 +1,5 @@
 // 꼬마빌딩 맵 두 종: 좁은 땅(22×16)에 층층이 올린 작은 사옥.
-//   B5 감옥 / B4 비밀연구소·금고 / B3 지하숙소 / B2 지하휴게실 / B1 기계실 / 1F 로비(보안실·카페·안내·우편함) /
+//   B7 비밀던전 / B6 비밀연구소·금고 / B5 감옥 / B4 지하숙소 / B3 지하휴게실 / B2 기계실 / B1 구내식당 / 1F 로비(보안실·카페·안내·우편함) /
 //   업무층 × n (책상 많은 층은 팀장실, 적은 층은 회의실 + 팀장 단독 책상) · 회의 전용층 2개(업무층 가운데 · 서버실 위) / 서버실·AI 학습실 / 휴게층 / 개인연구실·숙소 / 임원층 /
 //   R 루프탑 카페 & 바. 층마다 엘리베이터 2대·계단·남녀 화장실.
 //   오래 안 쓴 세션일수록 깊이 내려가고(지하휴게실 → 지하숙소 → 감옥), 귀중한 세션은 금고, 실적 좋은 세션은 숙소를 받는다.
@@ -40,6 +40,9 @@
     const npc = (L, role, home, x = {}) => I().npc(S, L, { id: `N:mini:${L.idx}:${role}:${S.npcs.length}`, role, home: { pose: 'stand', ...home }, anim: x.anim || 'idle', hat: x.hat ?? null, accent: x.accent || '#2b3a67', tie: x.tie, walkCarry: x.carry, say: x.say, patrol: x.patrol });
     const rest = (L, s, tag) => S.rest.push({ lv: L.idx, tag, carry: 'mug', ...s });
     const sign = (L, x, y, text, color = '#6b5b4a', room = true) => L.signs.push({ x, y, text, color, room });
+    // 사 먹는 곳: 음식을 산 세션이 실제로 가서 주문하는 자리 (food 구내식당 · cafe 카페 · bar 층 커피 바 · store 매점) + 식당 자리
+    S.shops = S.shops || []; S.eat = S.eat || [];
+    const shop = (L, kind, x, y, tag, face = '-y') => S.shops.push({ kind, lv: L.idx, x, y, face, pose: 'stand', tag });
 
     /** 공용: 엘리베이터 코어(x7–13) · 남녀 화장실(x13–19) · 계단(x19–22) · 복도(y5–7) */
     function shell(L, K, roomA) {
@@ -76,9 +79,9 @@
 
     // ================================================================ 지하 (깊은 곳부터)
     const under = (name, color) => { const r = mk(name, 'concrete', color, 'office'); return r; };
-    // ---- B6 비밀던전: 아주 오래(3일+) 잠든 세션이 쇠사슬 벤치에서 잠든다 · 횃불 · 보물상자 · 돌기둥 · 슬라임 우리
+    // ---- B7 비밀던전: 아주 오래(3일+) 잠든 세션이 쇠사슬 벤치에서 잠든다 · 횃불 · 보물상자 · 돌기둥 · 슬라임 우리
     {
-      const { L, K } = under('B6 비밀던전', '#5d5852'); L.desc = '비밀던전 · 3일 넘게 잠든 세션 · 보물 · 슬라임';
+      const { L, K } = under('B7 비밀던전', '#5d5852'); L.desc = '비밀던전 · 3일 넘게 잠든 세션 · 보물 · 슬라임';
       L.floor = 'v4_stone';
       shell(L, K, { name: '🗝️ 던전 관리실', color: '#8a6a3a' });
       L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'v4_stone', color: '#6b655e' });
@@ -98,9 +101,9 @@
       }
       sign(L, 0.3, 15.7, '🐉 비밀던전 · 아주 오래 잠든 세션', '#c47f22', false);
     }
-    // ---- B5 비밀연구소 · 금고
+    // ---- B6 비밀연구소 · 금고
     {
-      const { L, K } = under('B5 비밀연구소', '#2f3a44'); L.desc = '비밀연구소 + 금고 · 귀중한 세션 보관';
+      const { L, K } = under('B6 비밀연구소', '#2f3a44'); L.desc = '비밀연구소 + 금고 · 귀중한 세션 보관';
       shell(L, K, { name: '🔐 금고', color: '#b8955f' });
       L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'concrete', color: '#b5b9bd' });
       K.add({ type: 'depositBoxes', x: 0.3, y: 0.2, w: 6.4 }); K.blockRect(0, 0, 7, 1);
@@ -121,9 +124,9 @@
       npc(L, '박사', { x: 14, y: 13.5, face: '-x' }, { anim: 'think', hat: 'beret', accent: '#a67be0' });
       sign(L, 0.3, 15.7, '🧬 비밀연구소 (관계자 외 출입금지)', '#4ef08a');
     }
-    // ---- B4 감옥
+    // ---- B5 감옥
     {
-      const { L, K } = under('B4 감옥', '#b9bcbf'); L.desc = '감방 4칸 · 하루 넘게 안 쓴 세션';
+      const { L, K } = under('B5 감옥', '#b9bcbf'); L.desc = '감방 4칸 · 하루 넘게 안 쓴 세션';
       shell(L, K, { name: '👮 간수실', color: '#2b3a67' });
       L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'tile', color: '#c9d2dc' });
       K.add({ type: 'cctvWall', x: 0.4, y: 0.25, w: 5 }); K.blockRect(0, 0, 6, 1);
@@ -141,9 +144,9 @@
       npc(L, '간수', { x: 3, y: 8, face: '+y' }, { hat: 'police', patrol: [{ x: 3, y: 8, face: '+y' }, { x: 20, y: 8, face: '+y' }] });
       sign(L, 0.3, 8.6, '⛓️ 지하 감옥 · 오래 방치된 세션', '#2b3a67', false);
     }
-    // ---- B3 지하숙소: 벽에 머리를 둔 1인 침대 포드(칸막이 · 협탁 · 무드등) 앞뒤 두 줄 + 가운데 러그 라운지
+    // ---- B4 지하숙소: 벽에 머리를 둔 1인 침대 포드(칸막이 · 협탁 · 무드등) 앞뒤 두 줄 + 가운데 러그 라운지
     {
-      const { L, K } = under('B3 지하숙소', '#d9cdb8'); L.desc = '침대 포드 14칸 · 라운지 · 6~24시간 쉰 세션';
+      const { L, K } = under('B4 지하숙소', '#d9cdb8'); L.desc = '침대 포드 14칸 · 라운지 · 6~24시간 쉰 세션';
       shell(L, K, { name: '🧺 세탁실', color: '#4e7cf6' });
       L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'tile', color: '#e4edf5' });
       for (let k = 0; k < 4; k++) { K.add({ type: 'washer', x: 0.3 + k * 1.2, y: 0.3, k }); K.block(k, 0); }
@@ -181,14 +184,15 @@
       K.add({ type: 'lamp', x: 21.4, y: 12.6 }); K.block(21, 12); L.lamps.push({ x: 21.4, y: 12.6 });
       sign(L, 0.3, 12.9, '🛏️ 지하숙소 · 한동안 안 쓴 세션', '#6b5b4a');
     }
-    // ---- B2 지하휴게실
+    // ---- B3 지하휴게실
     {
-      const { L, K } = under('B2 지하휴게실', '#d8d2c6'); L.desc = '지하휴게실 · 매점 · 6시간 안쪽으로 쉰 세션';
+      const { L, K } = under('B3 지하휴게실', '#d8d2c6'); L.desc = '지하휴게실 · 매점 · 6시간 안쪽으로 쉰 세션';
       shell(L, K, { name: '🏪 지하매점', color: '#2f9e5f' });
       L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'tile', color: '#efe9df' });
       K.add({ type: 'storeShelf', x: 0.4, y: 0.3, w: 4, seed: 3 }); K.blockRect(0, 0, 5, 1);
       K.add({ type: 'till', x: 3.4, y: 2.4, w: 2.6, label: '지하매점' }); K.blockRect(3, 2, 3, 1);
       npc(L, '매점 직원', { x: 4.6, y: 1.8, face: '+y' }, { hat: 'cap', accent: '#2f9e5f' });
+      shop(L, 'store', 4.2, 3.6, '지하매점'); shop(L, 'store', 5.3, 3.6, '지하매점');
       L.patches.push({ x: 0, y: 7, w: FW, d: 9, style: 'wood', color: '#c9b38f' });
       K.add({ type: 'bigScreen', x: 5.5, y: 7.1, w: 5 }); K.blockRect(5, 7, 6, 1);
       for (const [gx, gy] of [[1, 9.6], [6.4, 11.6]]) { K.add({ type: 'sofa', x: gx, y: gy, w: 3.2 }); K.blockRect(gx, Math.floor(gy), 4, 1); [0.6, 1.6, 2.6].forEach((d) => S.underRest.push({ lv: L.idx, x: gx + d, y: gy + 0.62, face: '+y', pose: 'sofa', approach: [Math.floor(gx + d), Math.floor(gy) + 1], tag: '지하휴게실', carry: 'mug' })); }
@@ -200,9 +204,9 @@
       for (const [bx, c] of [[3, '#e2667f'], [18, '#4e9cf6'], [20, '#f6c445']]) { K.add({ type: 'beanbag', x: bx, y: 14.6, color: c }); S.underRest.push({ lv: L.idx, x: bx, y: 14.6, face: '-y', pose: 'sofa', tag: '지하휴게실' }); }
       sign(L, 0.3, 15.7, '🛋️ 지하휴게실 · 잠깐 쉬는 중단 세션', '#7a5540');
     }
-    // ---- B1 기계실
+    // ---- B2 기계실
     {
-      const { L, K } = under('B1 기계실', '#c4c2bc'); L.desc = '기계실 · 전기실 · 발전기 · 저수조';
+      const { L, K } = under('B2 기계실', '#c4c2bc'); L.desc = '기계실 · 전기실 · 발전기 · 저수조';
       shell(L, K, { name: '⚡ 전기실', color: '#c47f22' });
       L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'concrete', color: '#bfbcb6' });
       K.add({ type: 'electricPanel', x: 0.3, y: 0, w: 6.4 }); K.blockRect(0, 0, 7, 1);
@@ -216,6 +220,44 @@
       K.add({ type: 'airCon', x: 21, y: 11 }); K.block(21, 11);
       npc(L, '시설관리 기사', { x: 5, y: 12.6, face: '-y' }, { hat: 'hardhat', accent: '#f2c230', carry: 'paper', patrol: [{ x: 5, y: 12.6, face: '-y' }, { x: 15, y: 11.2, face: '-y' }, { x: 2, y: 11.5, face: '-y' }] });
       sign(L, 0.3, 13.6, '⚙️ 기계실 · 발전기 · 저수조 · 냉동기', '#c47f22', false);
+    }
+    // ---- B1 구내식당: 배식대(오늘의 메뉴) · 긴 식탁 4줄(40석) · 음료 냉장고 · 식판 반납 — 밥을 산 세션은 여기 내려와 받아서 먹고 올라간다
+    {
+      const { L, K } = mk('B1 구내식당', 'tile', '#f3ecdc', 'office'); L.desc = '구내식당 · 배식대 · 식탁 40석 · 조리실 · 음료';
+      shell(L, K, { name: '🍳 조리실', color: '#c47f22' });
+      L.patches.push({ x: 0, y: 0, w: 7, d: 5, style: 'tile', color: '#e6ebef' });
+      K.add({ type: 'kitchenLine', x: 0.4, y: 0.3, w: 5, kind: 'pot' }); K.blockRect(0, 0, 6, 1);
+      K.add({ type: 'fridge', x: 5.9, y: 0.25 }); K.block(5, 0); K.block(6, 0);
+      npc(L, '조리장', { x: 2.4, y: 1.5, face: '-y' }, { anim: 'type', hat: 'cap', accent: '#ffffff', say: '🍲 오늘 국 맛있어요' });
+      npc(L, '조리사', { x: 4.6, y: 1.5, face: '-y' }, { anim: 'type', hat: 'cap', accent: '#ffffff' });
+      // 식당 홀
+      L.patches.push({ x: 0, y: 7, w: FW, d: 9, style: 'wood', color: '#e6d3b3' }, { x: 0, y: 9, w: 9, d: 1, style: 'tile', color: '#ddd5c8' });
+      K.wallX(0, FW, 7, { h: 46, doors: [9, 10, 17], color: '#efe6d6' });
+      K.add({ type: 'ia_board', x: 1, y: 7, w: 6.4, kind: 'chalk', lines: ['🍱 오늘의 메뉴', '🍚 잡곡밥 · 🍲 된장국 · 🍗 닭갈비', '🥬 김치 · 🍮 푸딩 · 🍜 라면 코너'], z: 24, h: 22 });
+      K.add({ type: 'ia_mealCounter', x: 0.8, y: 8.1, w: 7.6 }); K.blockRect(0, 7, 9, 2);
+      npc(L, '배식 담당', { x: 2.6, y: 7.6, face: '+y' }, { anim: 'type', hat: 'cap', accent: '#ffffff' });
+      npc(L, '배식 담당', { x: 6.2, y: 7.6, face: '+y' }, { anim: 'type', hat: 'bucket', accent: '#f2c230' });
+      for (const x of [1.8, 3.4, 5, 6.6]) shop(L, 'food', x, 9.5, '구내식당 배식대');
+      K.add({ type: 'fridgeCase', x: 12.2, y: 7.1, w: 3 }); K.blockRect(12, 7, 3, 1);
+      K.add({ type: 'vending', x: 15.5, y: 7.25, color: '#3f8ae0' }); K.block(15, 7);
+      K.add({ type: 'waterCooler', x: 16.6, y: 7.3 }); K.block(16, 7);
+      K.add({ type: 'cabinet', x: 19, y: 7.3, w: 2.6 }); K.blockRect(19, 7, 3, 1);
+      sign(L, 18.8, 8.7, '🍽️ 식판 반납', '#7a5540', false);
+      const SEAT = ['#f2c230', '#4e9cf6', '#e2667f', '#3fb27f'];
+      [[1, [1.5, 3, 4.5, 6, 7.5]], [12, [12.5, 14, 15.5, 17, 18.5]]].forEach(([tx, xs], side) => {
+        for (const ty of [11, 14]) {
+          for (let i = 0; i < 8; i++) K.add({ type: 'tableSeg', x: tx + i, y: ty, w: 1, d: 0.9 });
+          K.blockRect(tx, ty, 8, 1);
+          for (const [dy, face] of [[-0.6, '+y'], [1.4, '-y']]) for (const x of xs) {
+            K.add({ type: 'stool', x, y: ty + dy, color: SEAT[(side * 2 + (dy > 0 ? 1 : 0)) % 4] });
+            S.eat.push({ lv: L.idx, x, y: ty + dy, face, pose: 'sit', tag: '구내식당', carry: 'tray' });
+          }
+        }
+      });
+      K.add({ type: 'plant', x: 21.3, y: 15.3, size: 1.1, seed: 21 }); K.block(21, 15);
+      K.add({ type: 'plant', x: 21.3, y: 11.6, size: 0.9, seed: 23 }); K.block(21, 11);
+      npc(L, '홀 정리', { x: 10.5, y: 12.5, face: '+y' }, { hat: 'bucket', accent: '#3f8a45', carry: 'tray', patrol: [{ x: 10.5, y: 12.5, face: '+y' }, { x: 10.5, y: 9.6, face: '+x' }, { x: 20.5, y: 9.6, face: '-x' }] });
+      sign(L, 0.3, 15.7, '🍽️ 구내식당 · 밥 사 먹는 곳', '#c47f22');
     }
     const NB = levels.length;
 
@@ -236,6 +278,7 @@
         for (const [dx, face] of [[-0.95, '+x'], [0.95, '-x']]) { K.add({ type: 'stool', x: tx + dx, y: ty, color: '#c49a62' }); rest(L, { x: tx + dx, y: ty, face, pose: 'sit' }, '1F 카페'); }
       }
       sign(L, 0.4, 15.6, '☕ 1F 카페', '#7a4a2a');
+      for (const x of [1.8, 3.4, 5]) shop(L, 'cafe', x, 9.4, '1F 카페');
       // 출입구 · 게이트 · 안내데스크 · 브랜드월 · 우편함 · 대기석
       K.add({ type: 'entrance', x: 9.5, y: FH - 0.08, w: 3, bld: 'tower' });
       L.decals.push({ type: 'floor', x: 9.3, y: FH - 1.5, w: 3.4, d: 1.4, color: '#8a7d6b' });
@@ -337,6 +380,7 @@
         K.add({ type: 'highTable', x: ox + 0.8, y: oy + 2.8, w: 3.2 }); K.blockRect(ox, oy + 2, 4, 1);
         for (let q = 0; q < 3; q++) { K.add({ type: 'barStool', x: ox + 1.3 + q * 1.1, y: oy + 3.9 }); rest(L, { x: ox + 1.3 + q * 1.1, y: oy + 3.88, face: '-y', pose: 'sit', carry: 'mug' }, '커피 바'); }
         L.signs.push({ x: ox + 0.3, y: oy + 5.6, text: '☕ 커피 바', color: '#7a4a2a' });
+        shop(L, 'bar', ox + 1.4, oy + 1.5, '커피 바'); shop(L, 'bar', ox + 2.6, oy + 1.5, '커피 바');
       } }) },
       { w: 3, label: '🌿 그린 존', make: (L, K) => ({ w: 3, d: 6, place(ox, oy) {
         for (const [dx, dy, sz] of [[0.7, 0.8, 1.3], [2.2, 2.4, 1], [0.8, 4, 1.15]]) { K.add({ type: 'plant', x: ox + dx, y: oy + dy, size: sz, seed: ox * 9 + dy * 3 }); K.block(Math.floor(ox + dx), Math.floor(oy + dy)); }
@@ -551,7 +595,7 @@
       K.add({ type: 'plant', x: 6.5, y: 0.6, size: 0.8, seed: 3 }); K.block(6, 0); K.add({ type: 'plant', x: 13.5, y: 0.6, size: 0.8, seed: 4 }); K.block(13, 0);
       K.add({ type: 'hutShell', x: 6, y: 0, w: 8, d: 4 });
       K.wallY(0, 4, 6, { h: 82, color: '#e6e0d6' }); K.wallY(0, 4, 14, { h: 82, color: '#e6e0d6' });
-      K.wallX(6, 9, 4, { h: 82, color: '#e6e0d6' }); K.wallX(9, 11, 4, { h: 82, doors: [9, 10], color: '#e6e0d6' }); K.add({ type: 'entrance', x: 9, y: 4 - 0.08, w: 2, bld: 'roof' });   // 1층 로비와 같은 유리 자동문 K.wallX(11, 14, 4, { h: 82, color: '#e6e0d6' });
+      K.wallX(6, 9, 4, { h: 82, color: '#e6e0d6' }); K.wallX(9, 11, 4, { h: 82, doors: [9, 10], color: '#e6e0d6' }); K.add({ type: 'entrance', x: 9, y: 4 - 0.08, w: 2, bld: 'roof', h: 82, color: '#e6e0d6' }); K.wallX(11, 14, 4, { h: 82, color: '#e6e0d6' });   // 가운데는 1층 로비와 같은 유리 자동문
       // 오른쪽 뒤 정원: 화분 줄 · 토피어리 · 텃밭 · 벤치
       for (let x = 14.4; x + 2 < FW; x += 2.4) { K.add({ type: 'planter', x, y: 0.35, w: 2.2, seed: x * 5 }); K.blockRect(Math.floor(x), 0, 3, 1); }
       for (const x of [15, 18, 21]) { K.add({ type: 'topiary', x: x + 0.5, y: 2.5, seed: x * 3 }); K.block(x, 2); }
@@ -568,6 +612,7 @@
       // ☕ 루프탑 카페 & 🍸 바
       K.add({ type: 'cafeCounter', x: 0.6, y: 6.2, w: 5.4 }); K.blockRect(0, 6, 6, 1);
       npc(L, '바리스타', { x: 2.6, y: 5.6, face: '+y' }, { anim: 'type', hat: 'beret', accent: '#7a4a2a' });
+      shop(L, 'cafe', 5.3, 7.6, '루프탑 카페');
       K.add({ type: 'beerTap', x: 14.4, y: 6.2, w: 3.2 }); K.blockRect(14, 6, 4, 1);
       npc(L, '바텐더', { x: 16, y: 5.6, face: '+y' }, { anim: 'type', hat: 'shades', accent: '#2b2622', tie: '#2b2622' });
       for (let k = 0; k < 3; k++) { const x = 14.8 + k * 1.2; K.add({ type: 'barStool', x, y: 7.75 }); rest(L, { x, y: 7.73, face: '-y', pose: 'sit', carry: 'mug' }, '루프탑 바'); }

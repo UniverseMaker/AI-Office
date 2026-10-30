@@ -38,7 +38,7 @@
     const marks = `${c.pinned ? '<i title="고정">📌</i>' : ''}${s.meta?.memo && authed() ? `<i title="${esc(s.meta.memo.slice(0, 120))}">📝</i>` : ''}${c.lock ? '<i title="강제 배치">📍</i>' : ''}${s.dismissed ? '<i title="알림 해제됨">🔕</i>' : ''}`;
     const extra = o.dismiss && authed() ? `<button class="it-btn" data-dismiss="${esc(s.id)}" title="${tr('실제로는 결정할 필요 없음 — 알림 해제')}">🔕</button>` : '';
     const bar = o.bar ? `<div class="it-bar"><span style="width:${Math.min(100, Math.round(((Date.now() - (s.activity?.since || Date.now())) / 600000) * 100))}%"></span></div>` : '';
-    return `<div class="item ${c.pinned ? 'pinned' : ''}" data-id="S:${esc(s.id)}">${avatar(s)}<div class="tx"><div class="t1">${esc(nameOf(s))}${h ? `<small class="rk">${esc(h.grade)}${h.role === '팀장' ? '·팀장' : ''}</small>` : ''}${marks}</div><div class="t2">${esc(sub)}</div>${bar}</div>${extra}${pill(s.status)}</div>`;
+    return `<div class="item ${c.pinned ? 'pinned' : ''}" data-id="S:${esc(s.id)}">${avatar(s)}<div class="tx"><div class="t1">${esc(nameOf(s))}${h ? `<small class="rk">${esc(tr(h.grade))}${h.role === '팀장' ? '·' + esc(tr('팀장')) : ''}</small>` : ''}${marks}</div><div class="t2">${esc(sub)}</div>${bar}</div>${extra}${pill(s.status)}</div>`;
   }
   const feedText = (f) => { const t = AIO.i18n.feed(f.text, f.kind); return authed() ? t : `${code(f.sid) || ''} · ${t}`; };
 
@@ -56,9 +56,12 @@
     $('chips').innerHTML = [
       ['busy', '작업중', busy.length, '#3fb27f'], ['urgent', '결정 필요', urgent.length, '#e5534b'], ['done', '완료', done.length, '#4e9cf6'],
       ['rest', '휴식', rest.length, '#b8a58c'], ['harness', '하네스 팀', harness.length, '#a67be0'], ['agents', '팀원·인턴 출동', agents, '#f3c44b'],
-    ].map(([k, l, n, c]) => `<div class="chip ${k === 'urgent' && n ? 'alert' : ''}" data-chip="${k}"><span class="dot" style="background:${c}"></span>${tr(l)} <b>${n}</b></div>`).join('');
+    ].map(([k, l, n, c]) => `<div class="chip ${k === 'urgent' && n ? 'alert' : ''}" data-chip="${k}"><span class="dot" style="background:${c}"></span>${tr(l)} <b>${n}</b></div>`).join('')
+      + `<button class="chip-nav l" data-chipnav="-1" aria-label="${tr('왼쪽으로')}">‹</button><button class="chip-nav r" data-chipnav="1" aria-label="${tr('오른쪽으로')}">›</button>`;
+    chipNav();
 
     $('decisionCard').classList.toggle('on', urgent.length > 0);
+    if (AIO.brand) AIO.brand.setUrgent(urgent.length);   // 탭 제목 (2) · 파비콘 배지
     if ($('tbDot')) $('tbDot').hidden = !urgent.length;
     $('decisionCount').textContent = urgent.length;
     $('decisionList').innerHTML = urgent.length
@@ -136,6 +139,8 @@
   function close() { drawerId = null; drawerMode = null; world.selected = null; $('drawer').hidden = true; $('drawer').classList.remove('wide'); AIO.detail.close(); syncDrawerClass(); }
   function syncDrawerClass() { document.body.classList.toggle('drawer-open', !$('drawer').hidden); document.body.classList.toggle('drawer-wide', !$('drawer').hidden && $('drawer').classList.contains('wide')); }
 
+  // 🎯 따라가기 버튼 (로그인과 상관없이 — 보는 기능이라)
+  const followBtn = (fid) => { const on = window.AIO_follow && window.AIO_follow.id === fid; return `<button class="d-follow ${on ? 'on' : ''}" data-follow="${esc(fid)}" title="${esc(tr('카메라가 이 캐릭터를 계속 따라가요 (지도를 끌거나 Esc 면 끝)'))}">🎯 ${esc(tr(on ? '따라가는 중' : '따라가기'))}</button>`; };
   function renderDrawer(fresh) {
     const id = drawerId;
     const e = world.ents.get(id);
@@ -158,7 +163,7 @@
     if (!isSession) {
       const isMember = id.startsWith('M:');
       const a = e?.agent, r = e?.r;
-      html += `<div class="d-head"><div class="av" style="background:${isMember ? (world.teamColor.get(s.id) || pv.accent) : '#e0b13a'}">${isMember ? '🧶' : '🎒'}</div><div><h2>${esc(isMember || authed() ? e?.name : tr('인턴'))}</h2><div class="meta">${isMember ? tr('하네스 팀원') : tr('인턴 (서브에이전트)')} · ${esc(nameOf(s))}</div></div></div>`;
+      html += followBtn(id) + `<div class="d-head"><div class="av" style="background:${isMember ? (world.teamColor.get(s.id) || pv.accent) : '#e0b13a'}">${isMember ? '🧶' : '🎒'}</div><div><h2>${esc(isMember || authed() ? e?.name : tr('인턴'))}</h2><div class="meta">${isMember ? tr('하네스 팀원') : tr('인턴 (서브에이전트)')} · ${esc(nameOf(s))}</div></div></div>`;
       const st = e?.status === 'working' ? 'working' : isMember ? 'standby' : 'done';
       html += `<div class="d-status"><div class="big">${a ? AIO.ACT_ICON[a.activity?.type] || '⌨️' : '☕'}</div><div><div class="l1">${a ? esc(act(a.activity) || tr('작업 중')) : AIO.status(st).label}</div><div class="l2">${authed() ? esc(a?.description || r?.description || '') : ''}</div></div></div>`;
       html += '<dl class="d-kv">';
@@ -170,10 +175,10 @@
       return;
     }
     const stt = AIO.status(s.status);
-    html += `<div class="d-head">${avatar(s, 46)}<div><h2>${esc(nameOf(s))}</h2><div class="meta">${esc(pv.label)} · ${esc(tr(s.app || ''))}${s.kind === 'harness' ? ` · 🧶 ${tr('하네스')}` : s.kind === 'app' ? ` · ${tr('앱')}` : ` · ${tr('단일 세션')}`}</div></div></div>`;
+    html += followBtn('S:' + s.id) + `<div class="d-head">${avatar(s, 46)}<div><h2>${esc(nameOf(s))}</h2><div class="meta">${esc(pv.label)} · ${esc(tr(s.app || ''))}${s.kind === 'harness' ? ` · 🧶 ${tr('하네스')}` : s.kind === 'app' ? ` · ${tr('앱')}` : ` · ${tr('단일 세션')}`}</div></div></div>`;
     html += `<div class="d-status" style="border-left:4px solid ${stt.color}"><div class="big">${AIO.ACT_ICON[s.activity?.type] || stt.icon}</div><div><div class="l1">${String(s.activity?.label || '').startsWith(stt.ko) ? esc(act(s.activity)) : `${stt.label} · ${esc(act(s.activity))}`}</div><div class="l2">${esc(s.activity?.detail || '')}${s.activity?.since ? ` <br>⏱ ${tr('{0}째', since(s.activity.since))}` : ''}</div></div></div>`;
     html += `<div class="d-grid"><div class="s"><b>${s.stats?.today ?? 0}</b><span>${tr('오늘 처리')}</span></div><div class="s"><b>Lv.${s.level || 1}</b><span>${tr('레벨')}</span></div><div class="s"><b>${(s.agents || []).filter((a) => a.status === 'working').length}</b><span>${tr('출동 중')}</span></div><div class="s"><b>${since(s.startedAt)}</b><span>${tr('근무')}</span></div></div>`;
-    if (s.kind === 'harness' && s.roster?.length) html += `<div class="d-sec">${tr('🧶 팀 ({0})', s.roster.length)}</div><div class="roster">${s.roster.map((r) => { const w = (s.agents || []).filter((a) => a.type === r.name && a.status === 'working'); return `<div class="r" data-open="M:S:${esc(s.id)}:${esc(r.name)}"><span class="dot" style="background:${w.length ? '#3fb27f' : '#c9bda9'}"></span><span class="nm">${esc(r.name)}</span><span class="lv">${w.length ? tr('작업중') : tr('대기')} · Lv.${r.level || 1}</span></div>`; }).join('')}</div>`;
+    if (s.kind === 'harness' && s.roster?.length) html += `<div class="d-sec">${tr('🧶 팀 ({0})', s.roster.length)}</div><div class="roster">${s.roster.map((r) => { const w = (s.agents || []).filter((a) => a.type === r.name && a.status === 'working'); return `<div class="r" data-open="M:S:${esc(s.id)}:${esc(r.name)}"><span class="dot" style="background:${w.length ? '#3fb27f' : '#c9bda9'}"></span><span class="nm">${esc(tr(r.name))}</span><span class="lv">${w.length ? tr('작업중') : tr('대기')} · Lv.${r.level || 1}</span></div>`; }).join('')}</div>`;
     if (s.source === 'process') html += `<div class="note">${tr('이 앱은 실행 여부만 감지돼요. 브리지(유저스크립트·이벤트 API)를 연결하면 대화 상태까지 보여요.')}</div>`;
     if (!authed()) html += lockCta();
     body.innerHTML = html;
@@ -204,11 +209,25 @@
   }
   function renderThemes() {
     renderMaps();
-    $('optList').innerHTML = OPTS.map(([k, ic, l, key]) => `<label class="opt"><span>${ic} ${tr(l)} <kbd>${key}</kbd></span><input type="checkbox" data-opt="${k}" ${world.opts[k] ? 'checked' : ''}></label>`).join('')
-      + `<label class="opt"><span>🔔 ${tr('결정 필요 알림·소리')}</span><input type="checkbox" data-opt="notify" ${notify ? 'checked' : ''}></label>`
-      + `<label class="opt"><span>📋 ${tr('사이드바')} <kbd>S</kbd></span><input type="checkbox" data-opt="side" ${$('side').classList.contains('hidden') ? '' : 'checked'}></label>`
-      + `<label class="opt"><span>🎖️ ${tr('이름표에 직급 표시')}</span><input type="checkbox" data-opt="rank" ${world.opts.rank !== false ? 'checked' : ''}></label>`
-      + `<label class="opt"><span>🌗 ${tr('시간대')}</span><select data-optsel="sky">${[['auto', '실제 시각'], ['day', '항상 낮'], ['dusk', '항상 노을'], ['night', '항상 밤']].map(([k, l]) => `<option value="${k}" ${(world.opts.sky || 'auto') === k ? 'selected' : ''}>${tr(l)}</option>`).join('')}</select></label>`;
+    // ⚙️ 표시 · 알림: 묶음(카드)마다 제목 · 설명, 고르는 것은 드롭다운 대신 버튼으로 다 보이게
+    const o = world.opts;
+    const sw = (key, ic, label, on, kbd) => `<label class="so-sw"><span class="so-ic">${ic}</span><span class="so-l">${tr(label)}${kbd ? ` <kbd>${kbd}</kbd>` : ''}</span><input type="checkbox" data-opt="${key}" ${on ? 'checked' : ''}><i></i></label>`;
+    const seg = (key, cur, list) => `<div class="so-seg">${list.map(([v, l]) => `<button class="${String(cur) === v ? 'on' : ''}" data-optk="${key}" data-optv="${v}">${tr(l)}</button>`).join('')}</div>`;
+    const af = o.autoFocus || 'off';
+    const AF = [['off', '⏸️', '끄기', '화면은 내가 움직일 때만'], ['floor', '🏢', '그 층 비추기', '새 지시가 온 캐릭터의 층으로'], ['follow', '🎯', '캐릭터 따라가기', '새 지시가 온 캐릭터를 졸졸'], ['latest', '🆕', '최근 세션 계속 따라가기', '가장 최근에 움직인 세션으로 갈아타며']];
+    $('optList').innerHTML = `<section class="so-card"><h4>👁️ ${tr('맵에 보이는 것')}</h4><div class="so-grid">`
+      + OPTS.map(([k, ic, l, key]) => sw(k, ic, l, o[k], key)).join('')
+      + sw('rank', '🎖️', '이름표에 직급 표시', o.rank !== false)
+      + `</div></section>`
+      + `<section class="so-card"><h4>🔔 ${tr('알림 · 화면')}</h4><div class="so-grid">`
+      + sw('notify', '🔔', '결정 필요 알림·소리', notify)
+      + sw('side', '📋', '사이드바', !$('side').classList.contains('hidden'), 'S')
+      + `</div></section>`
+      + `<section class="so-card so-wide"><h4>🎯 ${tr('자동 포커스')} <small>${tr('새 지시 · 새 움직임이 생기면 화면이 알아서 옮겨 가요')}</small></h4>`
+      + `<div class="so-choice">${AF.map(([v, ic, l, d]) => `<button class="${af === v ? 'on' : ''}" data-optk="autoFocus" data-optv="${v}"><span class="so-ic">${ic}</span><b>${tr(l)}</b><small>${tr(d)}</small></button>`).join('')}</div>`
+      + `<div class="so-row"><span>⏱️ ${tr('내가 화면을 만진 뒤 자동 포커스 쉬기')}</span>${seg('afQuiet', o.afQuiet ?? '20', [['0', '바로'], ['10', '10초'], ['20', '20초'], ['60', '1분'], ['300', '5분']])}</div></section>`
+      + `<section class="so-card so-wide"><h4>🌗 ${tr('시간대')} <small>${tr('밤에도 낮처럼 보고 싶으면 고정하세요')}</small></h4>`
+      + seg('sky', o.sky || 'auto', [['auto', '🕒 실제 시각'], ['dawn', '🌅 아침'], ['day', '☀️ 낮'], ['dusk', '🌇 노을'], ['night', '🌙 밤']]) + `</section>`;
     $('adminSec').innerHTML = '';
     if (false) $('adminSec').innerHTML = authed()
       ? `<div class="pop-sec">🔑 ${tr('관리자 전용')}</div><div class="admin-grid">${[['sessions', '👥', '세션 관리'], ['archive', '📦', '세션 보관함'], ['building', '🏢', '빌딩 관리'], ['admin', '🔌', '보관 설정 · 연동 API']].map(([k, ic, l]) => `<button class="theme" data-admin="${k}"><span class="ti">${ic}</span><span><b>${tr(l)}</b></span></button>`).join('')}</div>`
@@ -289,7 +308,7 @@
     world.authed = A.authed;
     // 관리 도구 독 (로그인했을 때만) · 계정 옵션 불러오기
     $('dock').hidden = !A.admin;
-    $('dock').innerHTML = A.admin ? [['sessions', '👥', '세션 관리'], ['kanban', '🗂️', '칸반'], ['mgm', '🏛️', '행정'], ['archive', '📦', '보관함'], ['building', '🏢', '빌딩 관리'], ['users', '🪪', '계정'], ['admin', '🔌', '연동']].map(([k, ic, l]) => `<button class="dock-btn" data-admin="${k}" title="${tr(l)}">${ic}<span class="lbl">${tr(l)}</span></button>`).join('') : '';
+    $('dock').innerHTML = A.admin ? [['sessions', '👥', '세션 관리'], ['kanban', '🗂️', '칸반'], ['mgm', '🏛️', '행정'], ['chars', '🧑', '캐릭터'], ['company', '💼', '회사'], ['archive', '📦', '보관함'], ['building', '🏢', '빌딩 관리'], ['users', '🪪', '계정'], ['admin', '🔌', '연동']].map(([k, ic, l]) => `<button class="dock-btn" data-admin="${k}" title="${tr(l)}"><span class="ic">${ic}</span><span class="lbl">${tr(l)}</span></button>`).join('') : '';
     if (A.authed && shownAuthed !== true && AIO.prefs) AIO.prefs.pull();
     // only rebuild an open panel when the login state actually flipped
     if (shownAuthed !== A.authed) { shownAuthed = A.authed; if (drawerId) renderDrawer(true); }
@@ -298,14 +317,14 @@
   // ------------------------------------------------------------ init
   function init(w, o) {
     world = w; opts = o;
-    if (AIO.manage) AIO.manage.init(w, () => state);
+    if (AIO.manage) AIO.manage.init(w, () => (AIO.view ? AIO.view.raw : state));   // 세션 관리는 보기 필터와 상관없이 전부
     document.addEventListener('click', (ev) => {
       const d = ev.target.closest('[data-dismiss]');
       if (d) { ev.preventDefault(); ev.stopPropagation(); const s = state.sessions.find((x) => x.id === d.dataset.dismiss); if (s) AIO.manage.dismiss(s).catch((e) => alert(e.message)); return; }
       const m = ev.target.closest('[data-more]');
       if (m) { ev.preventDefault(); ev.stopPropagation(); if (!authed()) { loginModal(); return; } if (!AIO.auth.state.admin) return; AIO.manage.open('sessions'); const f = { urgent: 'urgent', busy: 'busy', all: 'all' }[m.dataset.more]; setTimeout(() => { const b = document.querySelector(`#mgr [data-mf="${f}"]`); if (b) b.click(); }, 0); return; }
       const ad = ev.target.closest('[data-admin]');
-      if (ad) { ev.preventDefault(); $('themePop').hidden = true; AIO.manage.open(ad.dataset.admin); }
+      if (ad) { ev.preventDefault(); $('mapPop').hidden = true; $('btnMap').classList.remove('on'); AIO.manage.open(ad.dataset.admin); }
     }, true);
     if ($('sideQ')) $('sideQ').addEventListener('input', () => render(state));
     $('btnAcct').addEventListener('click', (ev) => { ev.stopPropagation(); AIO.prefs.open(); });
@@ -318,7 +337,7 @@
       if (t === 'map') $('btnMap').click();
       else if (t === 'side') toggleSide();
       else if (t === 'manage') { if (!authed()) loginModal(); else if (!AIO.auth.state.admin) alert(tr('관리 도구는 관리자만 쓸 수 있어요')); else AIO.manage.open('sessions'); }
-      else if (t === 'settings') $('btnTheme').click();
+      else if (t === 'settings') togglePop();
       else if (t === 'acct') AIO.prefs.open();
     });
     const clickOpen = (ev) => {
@@ -344,6 +363,8 @@
     $('modal').addEventListener('click', (ev) => { if (ev.target === $('modal')) closeModal(); });
     $('filters').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; ev.stopPropagation(); filter = b.dataset.filter; render(state); });
     $('chips').addEventListener('click', (ev) => {
+      const nv = ev.target.closest('[data-chipnav]');
+      if (nv) { ev.stopPropagation(); $('chips').scrollBy({ left: +nv.dataset.chipnav * Math.max(120, $('chips').clientWidth * 0.7), behavior: 'smooth' }); return; }
       const c = ev.target.closest('.chip'); if (!c) return;
       const k = c.dataset.chip, ss = state.sessions;
       const pickS = { busy: ss.find((s) => AIO.isBusy(s.status)), urgent: ss.find((s) => AIO.isUrgent(s.status)), done: ss.find((s) => s.status === 'done'), rest: ss.find((s) => s.status === 'idle' || s.status === 'sleeping'), harness: ss.find((s) => s.kind === 'harness'), agents: ss.find((s) => (s.agents || []).some((a) => a.status === 'working')) }[k];
@@ -354,8 +375,17 @@
     $('tickerTrack').addEventListener('animationiteration', () => { if (tickerPending) { $('tickerTrack').innerHTML = tickerPending; tickerShown = tickerPending; tickerPending = null; tickerSpeed(); } });
     $('btnFit').addEventListener('click', opts.onFit);
     $('demoClose').addEventListener('click', () => { $('demoBanner').hidden = true; });
-    const togglePop = () => { $('themePop').hidden = !$('themePop').hidden; renderThemes(); $('btnTheme').classList.toggle('on', !$('themePop').hidden); };
-    $('btnTheme').addEventListener('click', (ev) => { ev.stopPropagation(); togglePop(); });
+    // ⚙️ 설정은 맵 선택 창의 「표시 · 알림」 탭 (T)
+    const togglePop = () => toggleMap(!($('mapPop').hidden === false && mpTab === 'set'), 'set');
+    $('optList').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-optv]'); if (!b) return;
+      ev.stopPropagation();   // 다시 그리면 누른 버튼이 사라져서, 바깥을 누른 것으로 보고 창이 닫히지 않게
+      const k = b.dataset.optk, v = b.dataset.optv;
+      world.opts[k] = v; try { localStorage.setItem('aio.opts', JSON.stringify(world.opts)); } catch {}
+      if (k === 'sky') world.caches.clear();
+      if (k === 'autoFocus' && v !== 'latest' && v !== 'follow' && window.AIO_follow && window.AIO_follow.id) window.AIO_follow.stop();
+      renderThemes();
+    });
     $('optList').addEventListener('change', (ev) => {
       const ks = ev.target.dataset.optsel;
       if (ks) { world.opts[ks] = ev.target.value; try { localStorage.setItem('aio.opts', JSON.stringify(world.opts)); } catch {} world.caches.clear(); return; }
@@ -364,24 +394,32 @@
       else if (k === 'side') toggleSide(ev.target.checked);
       else { world.opts[k] = ev.target.checked; try { localStorage.setItem('aio.opts', JSON.stringify(world.opts)); } catch {} }
     });
-    const toggleMap = (force) => {
+    let mpTab = 'map';
+    const setTab = (tab) => {
+      mpTab = tab === 'set' || tab === 'view' || tab === 'skin' ? tab : 'map';
+      document.querySelectorAll('#mapPop [data-mptab]').forEach((b) => b.classList.toggle('on', b.dataset.mptab === mpTab));
+      document.querySelectorAll('#mapPop [data-mppane]').forEach((p) => { p.hidden = p.dataset.mppane !== mpTab; });
+      if (mpTab === 'set') renderThemes(); else if (mpTab === 'view') { if (AIO.view) AIO.view.render($('viewPane')); } else if (mpTab === 'skin') { if (AIO.skins) AIO.skins.render($('skinPane')); } else renderMaps();
+    };
+    var toggleMap = (force, tab) => {
       const open = force ?? $('mapPop').hidden;
       $('mapPop').hidden = !open; $('btnMap').classList.toggle('on', open);
-      if (open) { $('themePop').hidden = true; $('btnTheme').classList.remove('on'); renderMaps(); }
+      if (open) setTab(tab || mpTab);
     };
     $('btnMap').addEventListener('click', (ev) => { ev.stopPropagation(); toggleMap(); });
+    window.addEventListener('aio:openmap', (ev) => toggleMap(true, ev.detail));   // 👁️ 보기 필터 표시를 누르면 「세션 보기」 탭으로
     $('mapClose').addEventListener('click', () => toggleMap(false));
-    $('popMapOpen').addEventListener('click', (ev) => { ev.stopPropagation(); toggleMap(true); });
+    $('mpAcct').addEventListener('click', (ev) => { ev.stopPropagation(); toggleMap(false); AIO.prefs.open(); });
     $('mapPop').addEventListener('click', (ev) => {
+      const tb = ev.target.closest('[data-mptab]');
+      if (tb) { setTab(tb.dataset.mptab); return; }
       const p = ev.target.closest('[data-pick]');
       if (p) { const [i, o] = p.dataset.pick.split('|'); AIO.maps.pick(i, o); renderMaps(); return; }
       const c = ev.target.closest('[data-part]');
       if (c) { AIO.maps.select(c.dataset.part, c.dataset.id); renderMaps(); }
     });
-    document.addEventListener('click', (ev) => { if (!$('mapPop').hidden && !ev.target.closest('#mapPop,#btnMap')) toggleMap(false); });
+    document.addEventListener('click', (ev) => { if (!$('mapPop').hidden && !ev.target.closest('#mapPop,#btnMap,#btnView')) toggleMap(false); });
     renderMaps();
-    $('popClose').addEventListener('click', () => { $('themePop').hidden = true; $('btnTheme').classList.remove('on'); });
-    document.addEventListener('click', (ev) => { if (!$('themePop').hidden && !ev.target.closest('#themePop,#btnTheme')) { $('themePop').hidden = true; $('btnTheme').classList.remove('on'); } });
     $('btnAuth').addEventListener('click', () => (AIO.data.isDemo() ? serverModal() : AIO.auth.state.authed ? accountModal() : loginModal()));
     const openDash = () => { modal('<div id="dash"></div>', 'wide'); modalKind = 'dash'; AIO.detail.dashboard($('dash')); };
     $('btnInsights').addEventListener('click', openDash);
@@ -430,11 +468,25 @@
       else if (k === 'm') $('btnMap').click();
       else if (k === 'o') AIO.prefs.open();
       else if (k === 'i' && authed()) $('btnInsights').click();
-      else if (k === 'escape') { if (!$('modal').hidden) closeModal(); else if (!$('themePop').hidden) $('popClose').click(); else if (!$('mapPop').hidden) $('mapClose').click(); else close(); }
+      else if (k === 'escape') { if (!$('modal').hidden) closeModal(); else if (!$('mapPop').hidden) $('mapClose').click(); else close(); }
     });
   }
 
-  function toggle(k) { world.opts[k] = !world.opts[k]; try { localStorage.setItem('aio.opts', JSON.stringify(world.opts)); } catch {} if (!$('themePop').hidden) renderThemes(); }
+  function toggle(k) { world.opts[k] = !world.opts[k]; try { localStorage.setItem('aio.opts', JSON.stringify(world.opts)); } catch {} if (!$('mapPop').hidden) renderThemes(); }
+
+  // 상단 상태 칩: 넘치면 양 끝에 ‹ › (스크롤바가 없어 옆으로 밀 방법이 없던 문제) · 마우스 휠로도 옆으로
+  function chipNav() {
+    const c = $('chips'); if (!c) return;
+    const over = c.scrollWidth - c.clientWidth > 2;
+    c.classList.toggle('can-l', over && c.scrollLeft > 2);
+    c.classList.toggle('can-r', over && c.scrollLeft < c.scrollWidth - c.clientWidth - 2);
+  }
+  setTimeout(() => {
+    const c = $('chips'); if (!c) return;
+    c.addEventListener('scroll', chipNav, { passive: true });
+    c.addEventListener('wheel', (ev) => { if (c.scrollWidth <= c.clientWidth || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return; ev.preventDefault(); c.scrollLeft += ev.deltaY; }, { passive: false });
+    window.addEventListener('resize', chipNav);
+  }, 0);
 
   let modeNow = null, hostNow = '', hostSet = false;
   function paintMode() {
@@ -442,7 +494,9 @@
     const b = $('modeBadge');
     b.className = 'badge ' + (modeNow === 'live' ? 'live' : modeNow === 'demo' ? 'demo' : '');
     b.textContent = modeNow === 'live' ? 'LIVE' : modeNow === 'demo' ? 'DEMO' : tr('재연결 중…');
-    if (hostSet) $('hostLabel').textContent = hostNow === null ? tr('데모 캠퍼스') : hostNow ? tr('{0} · AI 세션 캠퍼스', hostNow) : tr('AI 세션 캠퍼스');
+    const cs = AIO.brand && AIO.brand.sub();         // 계정 옵션에서 직접 쓴 부제가 있으면 그것
+    if (cs) $('hostLabel').textContent = cs;
+    else if (hostSet) $('hostLabel').textContent = hostNow === null ? tr('데모 캠퍼스') : hostNow ? tr('{0} · AI 세션 캠퍼스', hostNow) : tr('AI 세션 캠퍼스');
   }
   function setMode(mode, info) {
     modeNow = mode;
@@ -475,5 +529,5 @@
     tt.style.top = (y + 14) + 'px';
   }
 
-  AIO.ui = { init, render, setMode, open, close, tooltip, renderThemes, code, modal, closeModal, world: () => world, toggleSide };
+  AIO.ui = { init, render, setMode, open, close, tooltip, renderThemes, code, modal, closeModal, world: () => world, toggleSide, repaint: () => paintMode() };
 })();

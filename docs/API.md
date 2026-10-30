@@ -73,7 +73,7 @@
 | `/api/timer` | 업무타이머 기록 (로그인한 계정마다) |
 | `GET /api/vault` | 계정 금고 상태(값 없음) |
 | `/api/tcc/*` | FlowBoard 칸반: `config` · `proxy/*` · `link` · `sync` |
-| `/api/mgm/*` | 행정관리: `config` · `proxy/*` · `audit` · `draft`(AI 세션 기록으로 주간 업무보고 초안) |
+| `/api/mgm/*` | 행정관리: `config`(자동 출퇴근 `auto: { on, signal: 'prompt'\|'any', idleMin, startHour, weekdaysOnly }` 포함) · `proxy/*` · `audit` · `draft`(AI 세션 기록으로 주간 업무보고 초안) |
 
 칸반 · 행정 프록시의 허용 경로 · 필드 · 속도 제한은 [SECURITY.md](SECURITY.md) 참고.
 

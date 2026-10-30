@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="css/v6.css">
 <link rel="stylesheet" href="css/kanban.css">
 <link rel="stylesheet" href="css/mgm.css">
+<link rel="stylesheet" href="css/chars.css">
+<link rel="stylesheet" href="css/company.css">
 <link rel="stylesheet" href="css/timer-aio.css">
 </head>
 <body>
@@ -24,7 +26,7 @@
     <div class="brand">
       <span class="logo">🧶</span>
       <div class="brand-tx">
-        <div class="name"><span class="name-full" data-i18n>AI 인공지능 연구원</span><span class="name-short" data-i18n>AI 연구원</span><span class="ver-badge" id="verBadge" title="현재 버전 (ai-office-v6 폴더)">v6</span></div>
+        <div class="name"><span class="name-full">AI 인공지능 연구원</span><span class="name-short">AI 연구원</span><span class="ver-badge" id="verBadge" title="현재 버전 (ai-office-v6 폴더)">v6</span></div>
         <div class="sub" id="hostLabel">AI 세션 캠퍼스</div>
       </div>
       <span id="modeBadge" class="badge">연결 중…</span>
@@ -37,8 +39,8 @@
       <button class="tbtn" id="btnInsights" title="인사이트 대시보드 (I)" data-i18n-title hidden>📊</button>
       <div class="tm-mini" id="pomoMini"></div>
       <div class="dock" id="dock" hidden></div>
-      <button class="set-btn map-btn" id="btnMap" title="맵 선택 — 실내 × 실외 (M)" data-i18n-title>🗺️<span class="lbl" id="mapLbl">맵</span></button>
-      <button class="set-btn" id="btnTheme" title="설정 — 표시·알림 (T)" data-i18n-title>⚙️<span class="lbl" data-i18n>설정</span></button>
+      <button class="set-btn view-btn" id="btnView" hidden>👁️</button>
+      <button class="set-btn map-btn" id="btnMap" title="맵 · 설정 — 실내 × 실외 · 표시 · 알림 (M · T)" data-i18n-title>🗺️<span class="lbl" id="mapLbl">맵</span><span class="mp-gear">⚙️</span></button>
       <button class="set-btn lang-btn" id="btnLang" title="Switch to English" aria-label="Switch to English">EN</button>
       <button class="set-btn acct-btn" id="btnAcct" title="계정 옵션 — 색 · 글꼴 · 레이아웃 (O)" data-i18n-title>🎨<span class="lbl" data-i18n>계정 옵션</span></button>
       <button class="auth-btn" id="btnAuth" title="로그인" data-i18n-title>🔒<span class="lbl">로그인</span></button>
@@ -47,24 +49,24 @@
 
   <nav id="floors" hidden></nav>
 
-  <div id="themePop" class="pop" hidden>
-    <button class="close" id="popClose" aria-label="닫기" data-i18n-aria-label>✕</button>
-    <h3>⚙️ <span data-i18n>설정</span></h3>
-    <div class="pop-sec" data-i18n>맵 선택</div>
-    <button class="theme" id="popMapOpen"><span class="ti">🗺️</span><span><b data-i18n>맵 선택 열기</b><small id="popMapCur"></small></span></button>
-    <div class="pop-sec" data-i18n>화면 표시</div>
-    <div id="optList" class="opt-list"></div>
-    <div id="adminSec"></div>
-  </div>
-
   <div id="mapPop" class="pop map-pop" hidden>
     <button class="close" id="mapClose" aria-label="닫기" data-i18n-aria-label>✕</button>
-    <h3>🗺️ <span data-i18n>맵 선택</span> <small class="map-hint" data-i18n>실내(건물)와 실외(부지)를 따로 골라 조합해요</small></h3>
-    <div id="mapCur" class="map-cur"></div>
-    <div id="mapOrig" class="map-orig"></div>
-    <div class="map-cols">
-      <div><div class="pop-sec">🏢 <span data-i18n>실내 · 건물</span> <span class="map-n" id="mapInN"></span></div><div id="mapIn" class="map-grid"></div></div>
-      <div><div class="pop-sec">🌳 <span data-i18n>실외 · 부지</span> <span class="map-n" id="mapOutN"></span></div><div id="mapOut" class="map-grid"></div></div>
+    <div class="mp-tabs" role="tablist"><button data-mptab="map" class="on">🗺️ <span data-i18n>맵 선택</span></button><button data-mptab="set">⚙️ <span data-i18n>표시 · 알림</span></button><button data-mptab="view">👁️ <span data-i18n>세션 보기</span></button><button data-mptab="skin">🎨 <span data-i18n>그래픽</span></button></div>
+    <div class="mp-pane" data-mppane="map">
+      <div class="map-hint" data-i18n>실내(건물)와 실외(부지)를 따로 골라 조합해요</div>
+      <div id="mapCur" class="map-cur"></div>
+      <div id="mapOrig" class="map-orig"></div>
+      <div class="map-cols">
+        <div><div class="pop-sec">🏢 <span data-i18n>실내 · 건물</span> <span class="map-n" id="mapInN"></span></div><div id="mapIn" class="map-grid"></div></div>
+        <div><div class="pop-sec">🌳 <span data-i18n>실외 · 부지</span> <span class="map-n" id="mapOutN"></span></div><div id="mapOut" class="map-grid"></div></div>
+      </div>
+    </div>
+    <div class="mp-pane" data-mppane="skin" hidden><div id="skinPane"></div></div>
+    <div class="mp-pane" data-mppane="view" hidden><div id="viewPane" class="vf"></div></div>
+    <div class="mp-pane" data-mppane="set" hidden>
+      <div id="optList" class="so"></div>
+      <div id="adminSec"></div>
+      <div class="mp-more"><button class="btn ghost sm" id="mpAcct">🎨 <span data-i18n>색 · 글꼴 · 크기는 계정 옵션에서</span></button></div>
     </div>
   </div>
 
@@ -121,6 +123,7 @@
 
 <script src="js/providers.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/i18n_en.js"></script>
 <script src="js/iso.js"></script>
 <script src="js/art.js"></script>
 <script src="js/art2.js"></script>
@@ -145,20 +148,28 @@
 <script src="js/outdoor_a.js"></script>
 <script src="js/outdoor_b.js"></script>
 <script src="js/maps.js"></script>
+<script src="js/depth.js"></script>
 <script src="js/world.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/data.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/keepopen.js"></script>
 <script src="js/detail.js"></script>
 <script src="timer/utils.js"></script>
 <script src="js/kanban.js"></script>
 <script src="js/mgm.js"></script>
+<script src="js/chars.js"></script>
+<script src="js/company.js"></script>
 <script src="timer/store-shim.js"></script>
 <script src="js/timer-ui.js"></script>
 <script src="js/prefs.js"></script>
+<script src="js/brand.js"></script>
 <script src="js/manage.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/viewport.js"></script>
+<script src="js/viewfilter.js"></script>
+<script src="js/skins.js"></script>
+<script src="js/pixelworld.js"></script>
 <script src="js/main.js"></script>
 <script src="js/timer-mount.js"></script>
 </body>

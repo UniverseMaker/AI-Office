@@ -10,7 +10,7 @@ import url from 'node:url';
 
 const root = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'public');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const skip = new Set(['data', 'auth', 'detail', 'ui', 'main', 'prefs']);
+const skip = new Set(['data', 'auth', 'detail', 'ui', 'main', 'prefs', 'brand', 'viewfilter', 'keepopen']);   // 화면(UI) 전용 모듈은 빼고 맵 · 세계만
 const files = [...html.matchAll(/<script src="js\/([\w-]+)\.js"><\/script>/g)].map((m) => m[1]).filter((f) => !skip.has(f));
 
 const ctxProxy = () => new Proxy({}, {
@@ -55,7 +55,7 @@ function run(AIO, inId, outId, verbose) {
       console.log('buildings:', S.buildings.map((b) => `${b.id}@${b.x},${b.y} ${b.W}x${b.H}`).join(' | '), 'seats', S.seats.size, 'rest', S.rest.length, 'visitor', S.visitorSeats.length, 'hot', S.hot.length, 'npcs', S.npcs.length);
     }
     const bad = [];
-    const spots = [...S.seats].concat(S.rest.map((r, i) => ['rest:' + r.tag + i, r]), S.visitorSeats.map((r, i) => ['visit' + i, r]), (S.meeting || []).map((r, i) => ['meet' + i, r]), (S.leadRooms || []).map((r, i) => ['leadroom' + i, r.seat]), (S.dungeon || []).map((r, i) => ['dungeon' + i, r]), (S.dorms || []).map((r, i) => ['dorm' + i, r]));
+    const spots = [...S.seats].concat(S.rest.map((r, i) => ['rest:' + r.tag + i, r]), S.visitorSeats.map((r, i) => ['visit' + i, r]), (S.meeting || []).map((r, i) => ['meet' + i, r]), (S.leadRooms || []).map((r, i) => ['leadroom' + i, r.seat]), (S.dungeon || []).map((r, i) => ['dungeon' + i, r]), (S.dorms || []).map((r, i) => ['dorm' + i, r]), (S.shops || []).map((r, i) => ['shop:' + r.tag + i, r]), (S.eat || []).map((r, i) => ['eat' + i, r]));
     for (const [k, seat] of spots) {
       const fake = { lv: S.door.lv, x: S.door.x, y: S.door.y, seed: 1, plan: [], spot: null };
       const plan = w.plan(fake, seat);

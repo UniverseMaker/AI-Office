@@ -116,6 +116,12 @@
     if (e.carry) { raiseL = 4; raiseR = 4; fwd = 3; }
     if (!front) { drawArm(-1, raiseL, fwd); drawArm(1, raiseR, fwd); }
 
+    // 🎨 테마 의상: 망토(몸 뒤)
+    if (st.cape) {
+      ctx.fillStyle = st.robe || '#1d1d24';
+      ctx.beginPath(); ctx.moveTo(-12.5, -25); ctx.quadraticCurveTo(-17, -8, -12, 1); ctx.lineTo(12, 1); ctx.quadraticCurveTo(17, -8, 12.5, -25); ctx.closePath(); ctx.fill();
+      if (!front) { ctx.fillStyle = shade(st.cape, -0.2); ctx.fillRect(-1, -24, 2, 24); }
+    }
     // body
     ctx.beginPath();
     ctx.ellipse(0, -14, 10.5, 10.5, 0, 0, Math.PI * 2);
@@ -132,6 +138,25 @@
       else { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(-1.1, -24, 2.2, 21); }
       ctx.restore();
     }
+    if (st.suit || st.robe) {
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(0, -14, 10.5, 10.5, 0, 0, Math.PI * 2); ctx.clip();
+      if (st.suit) {                                   // 정장: 재킷 + 흰 셔츠 V
+        ctx.fillStyle = st.suit; ctx.fillRect(-11, -25, 22, 22);
+        if (front) {
+          ctx.fillStyle = '#f7f7f4'; ctx.beginPath(); ctx.moveTo(-4.2, -25); ctx.lineTo(0, -12); ctx.lineTo(4.2, -25); ctx.fill();
+          ctx.strokeStyle = shade(st.suit, -0.35); ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-4.6, -25); ctx.lineTo(-0.8, -11); ctx.moveTo(4.6, -25); ctx.lineTo(0.8, -11); ctx.stroke();
+          ctx.fillStyle = shade(st.suit, 0.35); for (const by of [-9, -5.5]) { ctx.beginPath(); ctx.arc(0, by, 0.8, 0, 7); ctx.fill(); }
+        } else { ctx.strokeStyle = shade(st.suit, -0.3); ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(0, -4); ctx.stroke(); }
+      } else {                                         // 로브 · 우주복
+        ctx.fillStyle = st.robe; ctx.fillRect(-11, -25, 22, 22);
+        if (st.robeStars) { ctx.fillStyle = '#f6d365'; for (const [x, y, r] of [[-5, -18, 1.1], [4, -12, 1.3], [-2, -7, 0.9], [6, -20, 0.8], [-7, -10, 0.8]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); } }
+        if (st.patch && front) { ctx.fillStyle = '#4e7cf6'; ctx.fillRect(-7, -19, 4.5, 3); ctx.fillStyle = '#e5534b'; ctx.fillRect(3, -18, 3, 3); ctx.fillStyle = '#b8c0c8'; ctx.fillRect(-11, -9, 22, 2); }
+        if (st.cape && front) { ctx.fillStyle = st.cape; ctx.beginPath(); ctx.moveTo(-11, -25); ctx.lineTo(-4, -18); ctx.lineTo(-9, -12); ctx.closePath(); ctx.moveTo(11, -25); ctx.lineTo(4, -18); ctx.lineTo(9, -12); ctx.closePath(); ctx.fill(); }
+      }
+      plushShade(ctx, 0, -14, 10.5);
+      ctx.restore();
+    }
     if (st.tie && front) {
       ctx.fillStyle = st.tie;
       ctx.beginPath(); ctx.moveTo(-1.8, -19.5); ctx.lineTo(1.8, -19.5); ctx.lineTo(2.6, -9); ctx.lineTo(0, -6.5); ctx.lineTo(-2.6, -9); ctx.closePath(); ctx.fill();
@@ -139,6 +164,7 @@
     }
 
     // scarf
+    if (!st.noScarf) {
     ctx.save();
     ctx.translate(0, -22);
     ctx.beginPath(); ctx.ellipse(0, 0, 11.5, 4.2, 0, 0, Math.PI * 2);
@@ -154,6 +180,7 @@
       for (let i = 0; i < 3; i++) ctx.fillRect(tx - 2.6 + i * 2, 10.5, 1.1, 2.2);
     }
     ctx.restore();
+    }
 
     // arms front
     if (front) { drawArm(-1, raiseL, fwd); drawArm(1, raiseR, fwd); }
@@ -229,6 +256,14 @@
         ctx.restore();
       }
     }
+    if (st.gender === 'F' && st.hat !== 'hardhat') {          // 여성: 양 갈래 땋은 머리 (털실) + 리본
+      for (const sx of [-1, 1]) {
+        ctx.save(); ctx.translate(sx * 12.5, 6); ctx.rotate(sx * 0.18);
+        for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.ellipse(0, k * 4.6, 3.8 - k * 0.5, 3, 0, 0, Math.PI * 2); ctx.fillStyle = shade(st.hair || '#6b4a2e', k * 0.06); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 0.7; ctx.stroke(); }
+        ctx.fillStyle = st.accent || '#e2667f'; ctx.beginPath(); ctx.ellipse(-2.4, -2.2, 2.4, 1.6, -0.5, 0, 7); ctx.ellipse(2.4, -2.2, 2.4, 1.6, 0.5, 0, 7); ctx.fill();
+        ctx.restore();
+      }
+    }
     ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2);
     fillKnit(ctx, yarn, 0, -34);
     // yarn-ball strands
@@ -259,8 +294,10 @@
           ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + dx + 0.6, -0.4, 0.7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#2b2622';
         }
       }
+      if (!closed && st.gender === 'F') { ctx.lineWidth = 0.8; for (const ex of [-5, 5]) { const sx = ex > 0 ? 1 : -1; for (const [y0, y1] of [[-0.2, -1.2], [0.9, 0.4]]) { ctx.beginPath(); ctx.moveTo(ex + dx + sx * 1.7, y0); ctx.lineTo(ex + dx + sx * 3.0, y1); ctx.stroke(); } } ctx.lineWidth = 1.4; }   // 바깥 눈꼬리 속눈썹
+      if (st.gender === 'M') { ctx.lineWidth = 1.3; for (const ex of [-5, 5]) { ctx.beginPath(); ctx.moveTo(ex + dx - 2.1, -3.3); ctx.quadraticCurveTo(ex + dx, -4.1, ex + dx + 2.1, -3.3); ctx.stroke(); } ctx.lineWidth = 1.4; }   // 짧은 눈썹
       // cheeks
-      ctx.fillStyle = 'rgba(244,140,140,0.5)';
+      ctx.fillStyle = st.gender === 'F' ? 'rgba(244,120,140,0.62)' : 'rgba(244,140,140,0.5)';
       for (const ex of [-8.6, 8.6]) { ctx.beginPath(); ctx.ellipse(ex + dx, 5, 3, 1.9, 0, 0, Math.PI * 2); ctx.fill(); }
       // mouth
       ctx.lineWidth = 1.1;
@@ -290,6 +327,54 @@
   function hat(ctx, st, front, flip, t) {
     const a = st.accent, b = st.accent2;
     switch (st.hat) {
+      // ---- 🎨 테마 모자
+      case 'neat': {                                   // 회사원: 단정한 가르마 머리
+        ctx.fillStyle = st.hair || '#3b2a1e';
+        ctx.beginPath(); ctx.ellipse(0, -5, 15.4, 11, 0, Math.PI, 0); ctx.lineTo(15.4, -2); ctx.quadraticCurveTo(5 * flip, -10, -15.4, -1); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(-3 * flip, -10, 7, 3.5, -0.3 * flip, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke();
+        break;
+      }
+      case 'wizard': case 'witch': {                   // 마법사 · 마녀: 넓은 챙 + 꺾인 뾰족 모자
+        const c = st.hat === 'witch' ? '#26202e' : st.robe || a, band = st.hat === 'witch' ? '#7a3fa0' : '#f2c230';
+        ctx.fillStyle = shade(c, -0.12); ctx.beginPath(); ctx.ellipse(0, -9, 21, 6, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-11.5, -10); ctx.quadraticCurveTo(-4, -32, flip * 9, -47); ctx.quadraticCurveTo(2, -30, 11.5, -10); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = band; ctx.beginPath(); ctx.ellipse(0, -12.5, 11.6, 3.2, 0, 0, 7); ctx.fill();
+        if (st.hat === 'witch') { ctx.fillStyle = '#f2c230'; ctx.fillRect(-2.6, -14.6, 5.2, 4.2); ctx.fillStyle = band; ctx.fillRect(-1.3, -13.6, 2.6, 2.2); }
+        else { ctx.fillStyle = '#f6d365'; for (const [x, y] of [[-3, -24], [3, -32], [-1, -38]]) { ctx.beginPath(); for (let k = 0; k < 5; k++) { const an = -Math.PI / 2 + k * (Math.PI * 4 / 5); ctx[k ? 'lineTo' : 'moveTo'](x + Math.cos(an) * 2.2, y + Math.sin(an) * 2.2); } ctx.closePath(); ctx.fill(); } }
+        break;
+      }
+      case 'pumpkin': {                                // 할로윈: 호박 머리 (얼굴을 덮는다)
+        ctx.fillStyle = '#f08a24'; ctx.beginPath(); ctx.ellipse(0, 0.5, 17, 15.5, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#c7651a'; ctx.lineWidth = 1.2; for (const k of [-9, -3.5, 3.5, 9]) { ctx.beginPath(); ctx.ellipse(k, 0.5, 4.6, 15, 0, -Math.PI / 2, Math.PI / 2, k > 0); ctx.stroke(); }
+        ctx.fillStyle = '#3f7a2e'; ctx.fillRect(-1.6, -19, 3.2, 6);
+        if (front) {
+          const dx = flip * 3, glow = Math.sin(t * 5) > -0.3 ? '#ffd23f' : '#ffb13f';
+          ctx.fillStyle = glow;
+          for (const ex of [-6, 6]) { ctx.beginPath(); ctx.moveTo(ex + dx - 3, 0); ctx.lineTo(ex + dx + 3, 0); ctx.lineTo(ex + dx, -5); ctx.closePath(); ctx.fill(); }
+          ctx.beginPath(); ctx.moveTo(dx - 8, 5); for (let k = 0; k <= 8; k++) ctx.lineTo(dx - 8 + k * 2, 5 + (k % 2 ? 3 : 0) + (k > 1 && k < 7 ? 2 : 0)); ctx.lineTo(dx + 6, 9); ctx.quadraticCurveTo(dx, 12, dx - 6, 9); ctx.closePath(); ctx.fill();
+        }
+        break;
+      }
+      case 'vamp': {                                   // 뱀파이어: 올백 머리 (가운데 V)
+        ctx.fillStyle = '#16141a';
+        ctx.beginPath(); ctx.ellipse(0, -4, 15.4, 11.5, 0, Math.PI, 0); ctx.lineTo(15.4, -3); ctx.lineTo(4, -5); ctx.lineTo(0, 0); ctx.lineTo(-4, -5); ctx.lineTo(-15.4, -3); ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'santa': case 'elf': {                      // 크리스마스: 산타 · 요정 (끝이 옆으로 늘어진 모자)
+        const c = st.hat === 'santa' ? '#c0392b' : '#1f8a5b', tip = st.hat === 'santa' ? '#ffffff' : '#f2c230';
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-13, -9); ctx.quadraticCurveTo(-6, -30, flip * 16, -26); ctx.quadraticCurveTo(4, -22, 13, -9); ctx.closePath(); ctx.fill();
+        if (st.hat === 'elf') { ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-9, -17); ctx.quadraticCurveTo(0, -24, 9, -16); ctx.stroke(); }
+        ctx.fillStyle = st.hat === 'santa' ? '#ffffff' : '#c0392b'; ctx.beginPath(); ctx.ellipse(0, -9, 15, 4.4, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = tip; ctx.beginPath(); ctx.arc(flip * 16, -26, 3.6, 0, 7); ctx.fill();
+        break;
+      }
+      case 'helmet': {                                 // 우주: 유리 헬멧
+        ctx.fillStyle = '#c9d0d8'; ctx.beginPath(); ctx.ellipse(0, 14, 14, 4.2, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(190,225,255,0.22)'; ctx.beginPath(); ctx.arc(0, 0, 19, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#e8edf2'; ctx.lineWidth = 2.4; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 15, Math.PI * 1.15, Math.PI * 1.45); ctx.stroke();
+        break;
+      }
       case 'hardhat': {
         const hc = st.hardhat || '#f2c230';
         ctx.beginPath(); ctx.ellipse(0, -4, 18.5, 5.8, 0, 0, Math.PI * 2); ctx.fillStyle = shade(hc, -0.12); ctx.fill();

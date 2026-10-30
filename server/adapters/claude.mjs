@@ -13,6 +13,8 @@ const DONE_WINDOW = 30 * 60e3;      // "완료 · 확인 필요" for 30 min
 const SLEEP_AFTER = 3 * 3600e3;     // asleep at desk after 3h idle
 const AGENT_KEEP = 120e3;           // keep finished agents 2 min for exit animation
 const ORPHAN_WINDOW = 5 * 60e3;     // transcripts without registry entry, active within 5 min
+const UUID_JSONL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
+const ALL_EVERY = 30e3;             // 전체 대화 목록 · 계정별 등록 파일은 30초마다 다시 훑는다
 
 export const encodeCwd = (cwd) => String(cwd).replace(/[^A-Za-z0-9]/g, '-');
 
@@ -146,7 +148,9 @@ class Transcript {
 }
 
 export class ClaudeAdapter {
-  constructor({ home = os.homedir() } = {}) {
+  constructor({ home = os.homedir(), opts = () => ({}) } = {}) {
+    this.opts = opts;               // () => { allSessions, allSessionsDays, allSessionsArchived }
+    this.allAt = 0; this.all = [];
     this.root = path.join(home, '.claude');
     this.home = home;
     this.transcripts = new Map();   // sessionId -> Transcript
@@ -258,9 +262,9 @@ export class ClaudeAdapter {
     return { agents: out, allTypes };
   }
 
-  buildSession({ sessionId, cwd, reg, file }) {
+  buildSession({ sessionId, cwd, reg, file, rec = null, dormant = false }) {
     let tr = this.transcripts.get(sessionId);
-    if (!tr && file) { tr = new Transcript(file); this.transcripts.set(sessionId, tr); }
+    if (!tr && file) { tr = new Transcript(file, dormant ? { initialBytes: 400_000 } : undefined); this.transcripts.set(sessionId, tr); }
     if (tr) tr.update();
     const st = file ? statSafe(file) : null;
     const t = now();
@@ -268,7 +272,8 @@ export class ClaudeAdapter {
     const regStatus = String(reg?.status || (t - (tr?.lastAt || 0) < 30e3 && tr?.lastKind !== 'text' ? 'busy' : 'idle'));
 
     // --- agents / harness
-    const { agents, allTypes } = file ? this.scanAgents(file) : { agents: [], allTypes: new Set() };
+    // 쉬고 있는 대화는 서브에이전트 폴더를 매번 훑지 않는다 (10분 안에 바뀐 것만)
+    const { agents, allTypes } = file && !(dormant && st && t - st.mtimeMs > 600e3) ? this.scanAgents(file) : { agents: [], allTypes: new Set() };
     const { roster: defined } = this.roster(cwd);
     const definedNames = new Set(defined.map((r) => r.name));
     const custom = new Set([...allTypes, ...(tr?.agentTypesCalled || [])].filter((x) => !BUILTIN_AGENTS.has(x)));
@@ -324,11 +329,12 @@ export class ClaudeAdapter {
 
     const sizeKB = (st?.size || 0) / 1024;
     const level = Math.max(1, Math.floor(Math.log2(Math.max(1, sizeKB / 40))) + 1);
-    const title = reg?.name || tr?.title.custom || tr?.title.ai || baseName(cwd);
+    const title = reg?.name || tr?.title.custom || rec?.title || tr?.title.ai || baseName(cwd);
     return {
       id: 'claude:' + sessionId,
       provider: 'claude',
       source: reg ? 'registry' : 'transcript',
+      dormant: dormant || undefined,     // 프로그램이 안 떠 있는(다른 계정 · 닫힌) 대화 — 전체 보기로 들어옴
       app: reg?.entrypoint === 'claude-desktop' ? 'Claude 데스크톱' : reg?.entrypoint === 'cli' ? 'Claude Code CLI' : (reg?.entrypoint || 'Claude Code'),
       kind: harness ? 'harness' : 'single',
       title: shorten(title, 60),
@@ -390,9 +396,67 @@ export class ClaudeAdapter {
       if (isRunnerCwd(cwd)) continue;
       try { sessions.push(this.buildSession({ sessionId: o.sessionId, cwd, reg: null, file: o.file })); } catch {}
     }
+    // 모든 계정의 모든 대화 (Claude Desktop 계정 폴더의 등록 파일은 같은 대화를 가리키는 포인터일 뿐 — 대화 원문은 이 PC 에 하나)
+    //   돌고 있지 않아도 보이게: 다른 계정으로 바꿔 둔 동안 · 창을 닫은 대화도 쉬는 자리에 앉아 있다
+    const o = this.opts() || {};
+    if (o.allSessions !== false) {
+      for (const c of this.allConversations(o)) {
+        if (seen.has(c.sessionId) || sessions.some((s) => s.id === 'claude:' + c.sessionId)) continue;
+        seen.add(c.sessionId);
+        try { sessions.push(this.buildSession({ sessionId: c.sessionId, cwd: c.cwd, reg: null, file: c.file, rec: c.rec, dormant: true })); } catch {}
+      }
+    }
     // drop trackers for sessions that vanished
     for (const id of this.transcripts.keys()) if (!sessions.some((s) => s.id === 'claude:' + id)) this.transcripts.delete(id);
     return sessions;
+  }
+
+  /** 계정 폴더 전체의 등록 파일: cliSessionId → { title, archived(모든 계정에서 보관됨), lastActivityAt, cwd } */
+  recordIndex() {
+    const roots = [path.join(process.env.APPDATA || '', 'Claude', 'claude-code-sessions')];
+    try { for (const d of readdirSafe(path.join(process.env.LOCALAPPDATA || '', 'Packages'))) if (/^Claude_/.test(d)) roots.push(path.join(process.env.LOCALAPPDATA, 'Packages', d, 'LocalCache', 'Roaming', 'Claude', 'claude-code-sessions')); } catch {}
+    const out = new Map();
+    const walk = (dir, depth) => {
+      let ents; try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of ents) {
+        const fp = path.join(dir, e.name);
+        if (e.isDirectory() && depth < 4) walk(fp, depth + 1);
+        else if (e.isFile() && /^local_.*\.json$/.test(e.name)) {
+          const st = statSafe(fp); if (!st || st.size > 2e6) continue;
+          const r = readJSON(fp); const sid = r && r.cliSessionId; if (!sid) continue;
+          const cur = out.get(sid), act = Number(r.lastActivityAt) || st.mtimeMs;
+          if (!cur) out.set(sid, { title: r.title || '', archived: !!r.isArchived, lastActivityAt: act, cwd: r.cwd || r.originCwd || '' });
+          else { cur.archived = cur.archived && !!r.isArchived; if (act > cur.lastActivityAt) { cur.lastActivityAt = act; if (r.title) cur.title = r.title; if (r.cwd) cur.cwd = r.cwd; } }
+        }
+      }
+    };
+    for (const r of roots) walk(r, 0);
+    return out;
+  }
+  /** ~/.claude/projects 의 모든 대화(보조 기록 제외) — 30초 캐시 */
+  allConversations(o) {
+    if (now() - this.allAt > ALL_EVERY) {
+      this.allAt = now();
+      const recs = this.recordIndex(), projects = path.join(this.root, 'projects');
+      const runnerDir = encodeCwd(SUMMARY_RUNNER_DIR).toLowerCase();
+      const list = [];
+      for (const d of readdirSafe(projects)) {
+        if (d.toLowerCase() === runnerDir) continue;
+        const pd = path.join(projects, d);
+        for (const f of readdirSafe(pd)) {
+          if (!UUID_JSONL.test(f)) continue;
+          const file = path.join(pd, f), st = statSafe(file); if (!st || !st.size) continue;
+          const sessionId = f.slice(0, -6), rec = recs.get(sessionId) || null;
+          list.push({ sessionId, file, rec, mtime: st.mtimeMs, cwd: (rec && rec.cwd) || null });
+        }
+      }
+      this.all = list;
+    }
+    const days = Number(o.allSessionsDays) || 0, cut = days > 0 ? now() - days * 864e5 : 0;
+    return this.all.filter((c) => (o.allSessionsArchived || !(c.rec && c.rec.archived)) && c.mtime >= cut).map((c) => {
+      if (!c.cwd) { c.cwd = this.cwdFromTranscript(c.file) || null; }
+      return c;
+    }).filter((c) => !isRunnerCwd(c.cwd));
   }
 
   cwdFromTranscript(file) {

@@ -27,7 +27,20 @@ export const NATIONS = [
   N('TR', '🇹🇷', '튀르키예', 'gf', ['Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Aydın'], ['Zeynep', 'Emir', 'Elif', 'Yusuf', 'Defne', 'Kerem'], ['이스탄불', '앙카라', '이즈미르']),
   N('NG', '🇳🇬', '나이지리아', 'gf', ['Okafor', 'Adeyemi', 'Okonkwo', 'Bello', 'Eze'], ['Chiamaka', 'Tunde', 'Amara', 'Emeka', 'Zainab', 'Femi'], ['라고스', '아부자', '이바단']),
 ];
+import { localNames } from './names.mjs';
 const BY = new Map(NATIONS.map((n) => [n.code, n]));
+/** 여성 이름 (나머지는 남성) — 이름 목록은 그대로 두고 성별만 표시 (이미 붙은 자동 이름이 바뀌지 않게) */
+const FEMALE = {
+  KR: '서연 하윤 서아 지유 하은 수아 윤서 채원 지민 다은 소율 나연', JP: '結衣 葵 凛 陽菜 芽依 美咲', CN: '芳 娜 敏 静 婷 子涵 欣怡', TW: '怡君 雅婷 淑芬 宜蓁',
+  VN: 'Anh Linh Trang Thảo', IN: 'Priya Ananya Diya Kavya', US: 'Emily Olivia Ava Sophia Mia Harper', CA: 'Chloé Maya Zoé', GB: 'Amelia Isla Poppy Freya',
+  FR: 'Léa Camille Manon Inès', DE: 'Emma Mia Hannah Lea', IT: 'Giulia Sofia Aurora', ES: 'Lucía Martina Paula', BR: 'Ana Beatriz Larissa',
+  MX: 'Valentina Ximena Regina', AU: 'Charlotte Matilda Isla', SE: 'Elsa Alice Saga', NL: 'Sanne Fleur Lotte', TR: 'Zeynep Elif Defne', NG: 'Chiamaka Amara Zainab',
+};
+const FSET = new Map(Object.entries(FEMALE).map(([k, v]) => [k, new Set(v.split(' '))]));
+const genderOfGiven = (nat, g) => (FSET.get(nat) && FSET.get(nat).has(g) ? 'F' : 'M');
+export const GENDERS = { M: '남성', F: '여성', X: '기타 · 밝히지 않음' };
+/** 성별에 맞는 이름 뽑기 */
+function givenFor(r, n, gender) { const pool = gender === 'F' || gender === 'M' ? n.given.filter((g) => genderOfGiven(n.code, g) === gender) : n.given; return pick(r, pool.length ? pool : n.given); }
 const MBTI = ['INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP', 'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ', 'ISTP', 'ISFP', 'ESTP', 'ESFP'];
 const HOBBY = ['등산', '러닝', '사진', '요리', '보드게임', '독서', '기타 연주', '클라이밍', '수영', '커피 로스팅', '캠핑', '고양이 집사', '레트로 게임', '뜨개질', '자전거', '피아노', '와인', '서핑', '드로잉', '체스'];
 
@@ -36,13 +49,14 @@ const pick = (r, a) => a[Math.floor(r() * a.length)];
 /** 국적 분포: 절반은 한국, 나머지는 고루 */
 function pickNation(r) { return r() < 0.5 ? BY.get('KR') : pick(r, NATIONS.slice(1)); }
 function joinName(n, fam, giv) { return n.order === 'gf' ? `${giv} ${fam}` : (n.order === 'fg' && n.code === 'JP') || n.order === 'fgs' ? `${fam} ${giv}` : `${fam}${giv}`.replace(/\s+/g, ' ').trim(); }
-export function randomName(nat, seed = Math.random()) { const r = rng(seed), n = BY.get(nat) || BY.get('KR'); return joinName(n, pick(r, n.family), pick(r, n.given)); }
+export function randomName(nat, seed = Math.random(), gender = null) { const r = rng(seed), n = BY.get(nat) || BY.get('KR'); return joinName(n, pick(r, n.family), givenFor(r, n, gender)); }
 export function randomNation(seed = Math.random()) { return pickNation(rng('nat' + seed)).code; }
 
 /** 세션 id 로 늘 같은 기본 인물 */
 export function basePersona(id) {
   const r = rng(id), n = pickNation(r);
-  return { name: joinName(n, pick(r, n.family), pick(r, n.given)), nat: n.code, age: 24 + Math.floor(r() * 32), mbti: pick(r, MBTI), city: pick(r, n.cities), hobby: pick(r, HOBBY) };
+  const fam = pick(r, n.family), giv = pick(r, n.given);
+  return { name: joinName(n, fam, giv), gender: genderOfGiven(n.code, giv), nat: n.code, age: 24 + Math.floor(r() * 32), mbti: pick(r, MBTI), city: pick(r, n.cities), hobby: pick(r, HOBBY) };
 }
 /** 저장된 값(일부만 있어도) + 기본 인물 → 화면용 */
 export function personaOf(id, saved, auto = true) {
@@ -50,7 +64,10 @@ export function personaOf(id, saved, auto = true) {
   const b = basePersona(id), s = saved || {};
   const nat = BY.has(s.nat) ? s.nat : b.nat, n = BY.get(nat);
   const city = s.nat && s.nat !== b.nat ? n.cities[Math.floor(rng(id + nat)() * n.cities.length)] : b.city;
-  return { name: s.name || (s.nat && s.nat !== b.nat ? randomName(nat, id) : b.name), nat, flag: n.flag, country: n.ko, age: s.age || b.age, mbti: s.mbti || b.mbti, city: s.city || city, hobby: s.hobby || b.hobby, custom: !!saved };
+  const gender = GENDERS[s.gender] ? s.gender : b.gender;
+  const name = s.name || (s.nat && s.nat !== b.nat ? randomName(nat, id, gender) : gender !== b.gender ? randomName(nat, id + gender, gender) : b.name);
+  const ln = localNames(nat, name);
+  return { name, nameKo: ln.ko, nameEn: ln.en, gender, genderKo: GENDERS[gender], nat, flag: n.flag, country: n.ko, age: s.age || b.age, mbti: s.mbti || b.mbti, city: s.city || city, hobby: s.hobby || b.hobby, custom: !!saved };
 }
 /** 관리자 입력 정리 */
 export function cleanPersona(p) {
@@ -59,6 +76,7 @@ export function cleanPersona(p) {
   const name = String(p.name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 24);
   if (name) o.name = name;
   if (BY.has(p.nat)) o.nat = p.nat;
+  if (GENDERS[p.gender]) o.gender = p.gender;
   const age = Number(p.age); if (age >= 18 && age <= 99) o.age = Math.round(age);
   if (MBTI.includes(String(p.mbti || '').toUpperCase())) o.mbti = String(p.mbti).toUpperCase();
   for (const k of ['city', 'hobby']) { const v = String(p[k] || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 20); if (v) o[k] = v; }

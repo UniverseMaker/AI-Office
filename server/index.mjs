@@ -1,6 +1,6 @@
 // AI OFFICE collector — zero-dependency Node server.
-//   node server/index.mjs [--open]        (always http://127.0.0.1:17777)
-// Binds to 127.0.0.1 only. Serves ../public and a normalized live state of AI sessions.
+//   node server/index.mjs [--open]        (기본 http://127.0.0.1:17777 — 포트 · 주소는 data/server.json 또는 AI_OFFICE_PORT/HOST, AI-OFFICE.exe 에서 설정)
+// Binds to 127.0.0.1 by default. Serves ../public and a normalized live state of AI sessions.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,12 +20,14 @@ import * as econ from './economy.mjs';
 import { Webhooks } from './webhooks.mjs';
 import { routesV6 } from './routes_v6.mjs';
 import { TccSync } from './tcc.mjs';
+import { AutoAttend } from './mgm.mjs';
 import { columnOf } from './webhooks.mjs';
 import { redactState } from './redact.mjs';
 import { Details } from './details.mjs';
 import { Summarizer } from './summary.mjs';
 import { DATA_DIR } from './auth.mjs';
 import { personaOf } from './persona.mjs';
+import * as chars from './characters.mjs';
 import { applyMeta, settings as metaSettings, building, policyOf, getMeta, patchMeta } from './meta.mjs';
 import { Archive } from './archive.mjs';
 import { routesV4 } from './routes_v4.mjs';
@@ -33,13 +35,14 @@ import { routesV4 } from './routes_v4.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.resolve(__dirname, '..', 'public');
 const args = process.argv.slice(2);
-// Fixed by design: the page, the hook bridge and the userscript all talk to 17777. Do not make this configurable.
-const PORT = 17777;
+// 포트 · 주소: server/config.mjs (기본 17777 · 127.0.0.1). 훅 브리지도 같은 설정을 읽는다.
+import { PORT, HOST, SELF_HOSTS, URL_SELF, PID_FILE, LAUNCHER_KEY } from './config.mjs';
+import crypto from 'node:crypto';
 const TICK = 1500;
 
 const ingest = new IngestAdapter();
 const procs = new ProcessAdapter();
-const claude = new ClaudeAdapter();
+const claude = new ClaudeAdapter({ opts: () => metaSettings() });
 const codex = new CodexAdapter();
 // Register new transcript-based providers here.
 const ADAPTERS = [
@@ -60,6 +63,7 @@ const summarizer = new Summarizer();
 const archive = new Archive({ fileFor: (s) => details.fileFor(s), settings: metaSettings });   // 세션 보관함 (archive/)
 let handleV4 = null, handleV6 = null;
 const hooks = new Webhooks(() => metaSettings().webhooks);   // 칸반 연동
+const autoAttend = new AutoAttend({ getCfg: () => metaSettings().mgm, feed: (text) => globalFeed.push({ t: now(), icon: '🏢', text, kind: 'notify' }), log: (...a) => log(...a) });   // 행정 자동 출퇴근
 const tccSync = new TccSync({ getCfg: () => metaSettings().tcc, getLink: (id) => getMeta(id)?.task || null, setLink: (id, task) => patchMeta(id, { task }), columnOf, log: (...a) => log(...a) });   // FlowBoard 카드 자동 갱신
 let lastTick = Date.now();
 const accessOpts = () => ({ policyOf, defaults: metaSettings().disclosureDefault, configured: isConfigured() });
@@ -92,6 +96,7 @@ function collect() {
   applyOverlays(sessions);
   sessions.push(...ingest.scan());
   sessions.push(...procs.scan(sessions));
+  sessions.push(...chars.inject(sessions));          // 직접 만든 캐릭터 (독립 직원 · 세션에 입힌 인적사항)
   // where each session belongs on the campus (decided here because titles are hidden from logged-out viewers):
   //   paused  — title says 일시정지 → rest areas   ·   stopped — title says 중단, or idle 3h+ → factory   ·   active → tower
   //   jail — 유치장/감금 in the title or sent there from the detail panel · vault — 금고/보관 or stored from the panel
@@ -99,19 +104,27 @@ function collect() {
     const title = String(s.title || '');
     const ov = placeOverrides[s.id];
     s.placeOverride = ov || undefined;
-    s.place = ov || (s.kind === 'app' ? 'active' : /유치장|감금/.test(title) ? 'jail' : /금고|보관/.test(title) ? 'vault'
+    s.place = ov || (s.source === 'custom' ? s.place : s.kind === 'app' ? 'active' : /유치장|감금/.test(title) ? 'jail' : /금고|보관/.test(title) ? 'vault'
       : /일시\s*정지/.test(title) ? 'paused' : (/중단/.test(title) || s.status === 'sleeping') ? 'stopped' : 'active');
     applyMeta(s);                                      // 메모 · 결정 알림 해제 · 고정 · 동작 · 배치
-    s.persona = s.kind === 'app' ? null : personaOf(s.id, (getMeta(s.id) || {}).persona, metaSettings().personaAuto !== false);   // 캐릭터 이름 · 국적
+    chars.afterMeta(s);
+    if (s.custom && s.custom.linked) s.basePersona = personaOf(s.id, (getMeta(s.id) || {}).persona, metaSettings().personaAuto !== false);   // 공개 범위 밖 사람에게 보일 원래 인물
+    s.persona = s.kind === 'app' ? null : s.custom ? personaOf(s.id, s.custom.persona, true) : personaOf(s.id, (getMeta(s.id) || {}).persona, metaSettings().personaAuto !== false);   // 캐릭터 이름 · 국적
   }
   // 사내 재화: 일한 만큼 벌고, 알아서 먹고 사고
   { const nowMs = Date.now(), dt = Math.min(10e3, nowMs - lastTick); lastTick = nowMs; const set = metaSettings();
-    const pay = { payOn: set.payOn !== false, payBase: Number(set.payBase) || 3000, payStep: Number(set.payStep) || 0, payRaise: Number(set.payRaise) || 0, payYearDays: Number(set.payYearDays) || 7 };
+    const pay = { payOn: set.payOn !== false, payBase: Number(set.payBase) || 3000, payStep: Number(set.payStep) || 0, payRaise: Number(set.payRaise) || 0, payYearDays: Number(set.payYearDays) || 7,
+      bankLoanRate: Number(set.bankLoanRate) || 0, bankLateAdd: Number(set.bankLateAdd) || 0, bankDepositRate: Number(set.bankDepositRate) || 0, bankLimitMonths: Number(set.bankLimitMonths) || 6, bankAutoRepay: Number(set.bankAutoRepay) || 0, bankCredit: set.bankCredit !== false, companyPays: set.companyPays !== false };
     const bought = econ.tick(sessions, dt, Number(set.econRate) || 1, set.econAuto !== false, pay);
     for (const b of bought) {
       const s = sessions.find((x) => x.id === b.sid);
       if (b.pay) globalFeed.push({ t: now(), icon: '💵', sid: b.sid, text: `${shorten(s?.title || '', 20)} · 일급 ${b.pay.amount} 코인 지급${b.pay.days > 1 ? ` (${b.pay.days}일치)` : ''}`, kind: 'purchase' });
       else globalFeed.push({ t: now(), icon: b.item.icon, sid: b.sid, text: `${shorten(s?.title || '', 20)} · ${b.item.name} 구매 (💰${b.item.price})`, kind: 'purchase' });
+    }
+    for (const id of econ.bankTick(pay, nowMs)) {   // 새로 신용불량이 된 직원
+      const s = sessions.find((x) => x.id === id);
+      globalFeed.push({ t: now(), icon: '💸', sid: id, text: `${shorten(s?.title || '', 20)} · 신용불량 (대출이 한도를 넘음)`, kind: 'notify' });
+      if (set.bankJail && s && !placeOverrides[id]) { setPlace(id, 'jail'); globalFeed.push({ t: now(), icon: '🚔', sid: id, text: `${shorten(s?.title || '', 20)} · 빚을 못 갚아 감옥행`, kind: 'notify' }); }
     }
     for (const s of sessions) s.wallet = econ.walletOf(s.id, s, pay); }
 
@@ -137,6 +150,7 @@ function collect() {
   state = { ts: t, host: os.hostname(), mode: 'live', adapters: [...new Set([...ADAPTERS.map((a) => a.name), 'processes', 'ingest'])], sessions, feed: merged.slice(0, 60), building: building(), ranks: { scheme: metaSettings().rankScheme, custom: metaSettings().rankCustom } };
   try { hooks.scan(sessions); } catch (e) { log('webhook:', e.message); }
   try { tccSync.scan(sessions); } catch (e) { log('tcc:', e.message); }
+  try { autoAttend.scan(sessions); } catch (e) { log('attend:', e.message); }
   publish();
   archive.tick(sessions).catch((e) => log('archive:', e.message));
 }
@@ -192,7 +206,7 @@ function secHeaders(res, p) {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   if (res.req && /https/.test(String(res.req.headers['cf-visitor'] || res.req.headers['x-forwarded-proto'] || ''))) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
-  if (!p.startsWith('/api/')) res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:17777 http://localhost:17777; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'");
+  if (!p.startsWith('/api/')) res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' ${SELF_HOSTS.map((h) => 'http://' + h).join(' ')}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'`);
 }
 
 function cors(res) {
@@ -240,6 +254,17 @@ async function handle(req, res) {
   if (p.startsWith('/api/') && !ingestPath) cors(res);
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
+  if (p === '/api/server/shutdown' && req.method === 'POST') {
+    const fwd = !!(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.headers['cf-ray']);
+    let key = ''; try { key = fs.readFileSync(LAUNCHER_KEY, 'utf8').trim(); } catch {}
+    const given = String(req.headers['x-aio-launcher'] || '');
+    const ok = !fwd && key.length >= 32 && given.length === key.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(key)) && SELF_HOSTS.includes(String(req.headers.host || '').toLowerCase());
+    if (!ok) return sendJSON(res, 403, { error: 'forbidden' });
+    sendJSON(res, 200, { ok: true });
+    log('실행기 요청으로 종료합니다');
+    setTimeout(() => process.exit(0), 300);
+    return;
+  }
   const auth = await handleAuth(req, p, readBody);
   if (auth) {
     sendJSON(res, auth.status, auth.body, { pub: auth.public, headers: auth.headers, cookie: auth.cookie });
@@ -271,8 +296,8 @@ async function handle(req, res) {
   if (ingestPath && req.method === 'POST') {
     if (forwarded && !isAuthed(req)) return sendJSON(res, 403, { error: '수집 입구는 이 PC 에서만 쓸 수 있어요' });
     const host = String(req.headers.host || '').toLowerCase(), origin = req.headers.origin;
-    if (!/^(127\.0\.0\.1|localhost):17777$/.test(host)) return sendJSON(res, 403, { error: 'host' });                  // DNS 리바인딩 막기
-    if (origin && !/^(http:\/\/(127\.0\.0\.1|localhost):17777|null)$/.test(origin) && !/^(chrome|moz)-extension:/.test(origin)) return sendJSON(res, 403, { error: '다른 사이트에서 보낸 신호는 받지 않아요' });
+    if (!SELF_HOSTS.includes(host)) return sendJSON(res, 403, { error: 'host' });                  // DNS 리바인딩 막기
+    if (origin && !(origin === 'null' || SELF_HOSTS.some((h) => origin === 'http://' + h)) && !/^(chrome|moz)-extension:/.test(origin)) return sendJSON(res, 403, { error: '다른 사이트에서 보낸 신호는 받지 않아요' });
     if (req.headers['sec-fetch-site'] === 'cross-site') return sendJSON(res, 403, { error: 'cross-site' });
     if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) return sendJSON(res, 415, { error: 'JSON 만 받아요' });
   }
@@ -347,7 +372,7 @@ async function handle(req, res) {
     const r = await summarizer.summarize(s, an);
     return sendJSON(res, r.status, r.body);
   }
-  if (!handleV6) handleV6 = routesV6({ getState: () => state, archive, collect: safeCollect, hooks, details, tccSync });
+  if (!handleV6) handleV6 = routesV6({ getState: () => state, archive, collect: safeCollect, hooks, details, tccSync, autoAttend });
   if (p.startsWith('/api/') && (await handleV6(req, res, p, url))) return;
   if (!handleV4) handleV4 = routesV4({ getState: () => state, archive, collect: safeCollect });
   if (p.startsWith('/api/') && (await handleV4(req, res, p, url))) return;
@@ -387,7 +412,6 @@ function log(...a) {
 process.on('uncaughtException', (e) => log('uncaught:', e.stack || e.message));
 process.on('unhandledRejection', (e) => log('unhandled:', e?.stack || e));
 
-const URL_SELF = `http://127.0.0.1:${PORT}/`;
 const openBrowser = () => exec(process.platform === 'win32' ? `start "" "${URL_SELF}"` : `open "${URL_SELF}"`);
 
 server.on('error', async (e) => {
@@ -396,7 +420,7 @@ server.on('error', async (e) => {
     process.exit(1);
   }
   if (e.code !== 'EADDRINUSE') { log('server error:', e.message); process.exit(1); }
-  // single instance: if AI OFFICE already owns 17777, just reuse it
+  // single instance: if AI OFFICE already owns this port, just reuse it
   try {
     const r = await fetch(URL_SELF + 'api/state', { signal: AbortSignal.timeout(1500) });
     const j = await r.json();
@@ -406,13 +430,19 @@ server.on('error', async (e) => {
       process.exit(0);
     }
   } catch {}
-  log(`포트 ${PORT}을 다른 프로그램이 쓰고 있어요. 그 프로그램을 종료해야 AI OFFICE가 켜집니다. (포트는 ${PORT} 고정)`);
+  log(`포트 ${PORT}을 다른 프로그램이 쓰고 있어요. 그 프로그램을 종료하거나 AI-OFFICE.exe 에서 다른 포트를 고르세요.`);
   process.exit(1);
 });
 
 const safeCollect = () => { try { collect(); } catch (e) { log('collect error:', e.stack || e.message); } };
-// AI_OFFICE_NO_LISTEN=1 → import the handler without opening 17777 (offline checks only)
-if (process.env.AI_OFFICE_NO_LISTEN !== '1') server.listen(PORT, '127.0.0.1', () => {
+// AI_OFFICE_NO_LISTEN=1 → import the handler without opening the port (offline checks only)
+// 실행기(AI-OFFICE.exe)용: PID 파일 · 종료 열쇠(이 PC 의 실행기만 아는 무작위 값)
+const writePid = () => { try { fs.mkdirSync(path.dirname(PID_FILE), { recursive: true }); fs.writeFileSync(PID_FILE, JSON.stringify({ pid: process.pid, port: PORT, host: HOST, started: Date.now() })); } catch {} };
+const clearPid = () => { try { const j = JSON.parse(fs.readFileSync(PID_FILE, 'utf8')); if (j.pid === process.pid) fs.unlinkSync(PID_FILE); } catch {} };
+process.on('exit', clearPid);
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGBREAK']) process.on(sig, () => { log(`종료 신호(${sig})`); process.exit(0); });
+if (process.env.AI_OFFICE_NO_LISTEN !== '1') server.listen(PORT, HOST, () => {
+  writePid();
   safeCollect();
   setInterval(safeCollect, TICK);
   log(`🏢 AI OFFICE ${URL_SELF} · adapters: ${ADAPTERS.map((a) => a.name).join(', ')} + processes + ingest · sessions: ${state.sessions.length}`);

@@ -95,7 +95,7 @@ export function routesV4({ getState, archive, collect }) {
       if (p === '/api/v1') { json(res, 200, DOCS); return true; }
       const key = keyOf(req), adm = isAuthed(req);
       if (!key && !adm) { json(res, 401, { error: 'API 키가 필요해요 (Authorization: Bearer aio_…)' }); return true; }
-      if (!adm && key.scope === 'transfer') { json(res, 403, { error: '전송 전용 키예요 — /api/transfer/v1 만 쓸 수 있어요' }); return true; }
+      if (!adm && (key.scope === 'transfer' || key.scope === 'sync')) { json(res, 403, { error: '전송 · 동기화 전용 키예요 — /api/transfer/v1 만 쓸 수 있어요' }); return true; }
       if (!adm && key.scope === 'read' && req.method !== 'GET') { json(res, 403, { error: '읽기 전용 키예요' }); return true; }
       const q = p.slice('/api/v1'.length);
       if (q === '/sessions' && req.method === 'GET') { json(res, 200, { sessions: (getState().sessions || []).map(apiSession) }); return true; }

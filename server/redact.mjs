@@ -14,6 +14,7 @@ const KNOWN_APPS = new Set(['Claude 데스크톱', 'Claude Code CLI', 'Claude Co
 const PROVIDER_APP = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini', qwen: 'Qwen Code', chatgpt: 'ChatGPT', cursor: 'Cursor' };
 
 function genericApp(s) {
+  if (s.provider === 'custom') return '직접 만든 캐릭터';
   if (s.source === 'process' || KNOWN_APPS.has(s.app)) return s.app; // process titles come from a fixed catalog
   if (s.provider === 'claude') return /데스크톱|desktop/i.test(s.app) ? 'Claude 데스크톱' : /cli/i.test(s.app) ? 'Claude Code CLI' : 'Claude Code';
   if (s.provider === 'codex') return /desktop/i.test(s.app) ? 'Codex Desktop' : 'Codex';
@@ -29,7 +30,7 @@ export function redactSession(s) {
   return {
     id: s.id, provider: s.provider, source: s.source, kind: s.kind, app: genericApp(s),
     title: '', project: '', cwd: '', model: '', effort: '', permissionMode: '', pid: null,
-    persona: s.persona || null,
+    persona: s.persona || null, look: s.look || null, custom: s.custom ? { id: s.custom.id, linked: !!s.custom.linked, seeMin: s.custom.seeMin } : undefined, basePersona: s.basePersona, bubble: s.source === 'custom' ? s.bubble || '' : undefined,
     status: s.status, level: s.level, place: s.place, placeOverride: s.placeOverride, ctl: s.ctl ? { action: s.ctl.action, assign: s.ctl.assign, lock: s.ctl.lock, pinned: s.ctl.pinned } : s.ctl, dismissed: s.dismissed,
     activity: genericAct(s.activity),
     startedAt: s.startedAt, lastActive: s.lastActive, turnStartedAt: s.turnStartedAt || 0,

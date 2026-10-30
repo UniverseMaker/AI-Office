@@ -7,6 +7,7 @@
 //   · 경로 허용목록 + 쿼리 키 허용목록 + 쓰기 본문 필드 허용목록. 삭제(DELETE) · 인사(직원/부서) 변경 · 근태 보정은 아예 막음.
 //   · 속도 제한(읽기 120/분 · 쓰기 20/분) · 감사 기록(data/mgm-audit.jsonl: 시각 · 사람 · 경로 · 결과, 본문/토큰은 안 남김).
 //   · 외부 주소(터널)로 들어온 요청은 기본으로 읽기만 (설정에서 켜야 쓰기 가능).
+//   · 자동 출퇴근(AutoAttend): 서버가 AI 세션 활동을 보고 출근/퇴근만 찍는다(그 밖의 쓰기 없음). 켜고 끄기는 이 PC 에서만.
 import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from './auth.mjs';
@@ -124,6 +125,72 @@ export async function mgm(cfg, method, p, body) {
     let j = null; try { j = JSON.parse(buf.toString('utf8')); } catch {}
     return { status: r.status, body: j ? scrub(j) : { ok: false, error: { code: 'bad_response', message: `HTTP ${r.status}` } } };
   } catch (e) { return { status: 502, body: { ok: false, error: { code: 'network', message: e.name === 'TimeoutError' ? '행정관리 서버 응답이 없어요' : '행정관리 서버에 연결하지 못했어요' } } }; }
+}
+
+// ---------------------------------------------------------------- AI 세션 활동 → 자동 출퇴근
+//   출근: 그날 처음 "내가 AI 에게 요청을 보낸" 순간(신호 'prompt') 또는 AI 가 일하기 시작한 순간(신호 'any')에 punch in
+//   퇴근: 마지막 AI 활동 뒤 idleMin 분 동안 조용하면 punch out. 다시 일하면 다음 퇴근 때 퇴근 시각이 덮어써진다(행정 API 규칙).
+//   출근 가능 시각(startHour) 전 · 주말(옵션)은 출근시키지 않는다. 금고가 잠겨 있거나 토큰이 없으면 아무것도 안 한다.
+export const AUTO_DEFAULT = { on: false, signal: 'prompt', idleMin: 30, startHour: 5, weekdaysOnly: true };
+const BUSY = new Set(['working', 'tool', 'thinking', 'delegating']);
+const STATE_FILE = path.join(DATA_DIR, 'mgm-attend.json');
+const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const hhmm = (t) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+export class AutoAttend {
+  constructor({ getCfg, feed, log }) {
+    Object.assign(this, { getCfg, feed, log });
+    this.prevTurn = new Map(); this.busy = false; this.retryAt = 0;
+    try { this.st = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) || {}; } catch { this.st = {}; }
+    this.history = this.st.history || [];
+  }
+  cfg() { const c = this.getCfg() || {}; return { ...AUTO_DEFAULT, ...(c.auto || {}) }; }
+  save() { try { fs.mkdirSync(DATA_DIR, { recursive: true }); this.st.history = this.history.slice(0, 30); fs.writeFileSync(STATE_FILE, JSON.stringify(this.st)); } catch {} }
+  note(what, ok, detail) { this.history.unshift({ at: Date.now(), what, ok, detail: detail || '' }); this.history.length = Math.min(this.history.length, 30); this.save(); }
+  status() { const a = this.cfg(), today = this.st.day === dayKey() ? this.st : {}; return { ...a, today: { inAt: today.inAt || null, outAt: today.outAt || null, lastAct: today.lastAct || null, error: this.st.error || null }, history: this.history.slice(0, 10) }; }
+  /** 수집할 때마다 */
+  scan(sessions) {
+    const a = this.cfg(), now = Date.now(), day = dayKey(now);
+    if (this.st.day !== day) { this.st = { day, history: this.history }; this.save(); }
+    // 활동 감지 (꺼져 있어도 기준은 계속 잡아 둔다 — 켜는 순간 지난 요청으로 출근하지 않게)
+    let prompted = 0, working = 0;
+    for (const s of sessions) {
+      if (s.kind === 'app') continue;
+      const t = s.turnStartedAt || 0, was = this.prevTurn.get(s.id);
+      if (was !== undefined && t > was && dayKey(t) === day) prompted = Math.max(prompted, t);
+      this.prevTurn.set(s.id, t);
+      if (BUSY.has(s.status)) working = now;
+    }
+    const act = Math.max(prompted, working);
+    if (act) this.st.lastAct = Math.max(this.st.lastAct || 0, act);
+    if (!a.on || this.busy || now < this.retryAt || !vault.isUnlocked(OWNER) || !vault.has(OWNER, 'mgm')) return;
+    const d = new Date(now), weekend = d.getDay() === 0 || d.getDay() === 6;
+    const trigger = a.signal === 'any' ? act : prompted;
+    if (!this.st.inAt && trigger && d.getHours() >= a.startHour && !(a.weekdaysOnly && weekend)) return void this.punch('in', trigger);
+    const idle = (Number(a.idleMin) || 30) * 60e3;
+    if (this.st.inAt && this.st.lastAct && now - this.st.lastAct >= idle && (this.st.outAt || 0) < this.st.lastAct) return void this.punch('out', this.st.lastAct);
+  }
+  async punch(kind, at) {
+    this.busy = true;
+    try {
+      const r = await mgm({ ...DEFAULT_MGM, ...(this.getCfg() || {}) }, 'POST', '/attendance/punch', { kind });
+      const ok = r.body && r.body.ok;
+      audit({ who: 'auto', ext: false, method: 'POST', path: '/attendance/punch (' + kind + ')', status: r.status, code: ok ? undefined : r.body?.error?.code });
+      if (ok) {
+        const rec = r.body.data || {};
+        if (kind === 'in') this.st.inAt = Date.parse(rec.checkIn || '') || Date.now(); else this.st.outAt = Date.parse(rec.checkOut || '') || Date.now();
+        this.st.error = null;
+        this.note(kind === 'in' ? '자동 출근' : '자동 퇴근', true, `${hhmm(kind === 'in' ? this.st.inAt : this.st.outAt)}${kind === 'out' ? ` (마지막 AI 활동 ${hhmm(at)})` : ''}${rec.type && rec.type !== '정상' ? ' · ' + rec.type : ''}`);
+        this.feed && this.feed(kind === 'in' ? '🏢 행정 자동 출근' : '🌙 행정 자동 퇴근');
+      } else {
+        const code = r.body?.error?.code, msg = r.body?.error?.message || `HTTP ${r.status}`;
+        this.st.error = msg;
+        this.note(kind === 'in' ? '자동 출근 실패' : '자동 퇴근 실패', false, msg);
+        this.retryAt = Date.now() + (code === 'no_linked_employee' || code === 'insufficient_scope' || code === 'forbidden' ? 3600e3 : 5 * 60e3);
+      }
+      this.save();
+    } catch (e) { this.retryAt = Date.now() + 5 * 60e3; this.log && this.log('attend:', e.message); }
+    finally { this.busy = false; }
+  }
 }
 
 // ---------------------------------------------------------------- 업무보고 초안 (AI 세션 기록으로)

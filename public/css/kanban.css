@@ -192,3 +192,10 @@
   .kb-dtitle { font-size: 16px; }
   .kb-add { padding: 9px 8px; }
 }
+
+/* 필터 줄은 한 줄로 (넘치면 옆으로 밀어서) — 두 줄로 꺾이지 않게 */
+@media (min-width: 761px) {
+  .kb-filters { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .kb-filters > * { flex: none; }
+  .kb-filters select { max-width: 150px; }
+}

@@ -11,7 +11,8 @@
   let lastFocus = null;
 
   function resize() {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const px = AIO.skins ? AIO.skins.pixel() : 0;      // 🎨 도트 그림체: 캔버스를 낮은 해상도로 그려 큰 픽셀로 늘린다
+    dpr = px ? 1 / px : Math.min(2, window.devicePixelRatio || 1);
     vw = canvas.clientWidth; vh = canvas.clientHeight;
     canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
     cam.vw = vw; cam.vh = vh;
@@ -100,11 +101,16 @@
     if (tower && inside && v.focus === 'tower') {
       const fi = world.floorInfo(tower);
       const rows = tower.levels.map((lv, i) => ({ lv, i, L: S.levels[lv], f: fi[i] })).reverse();
-      html += `<div class="elev-panel"><div class="ep-title">🛗 ${T('층 이동')}</div>${(() => { const C = towerFloor != null ? S.levels[towerFloor] : null; return C ? `<div class="ep-cur"><small>📍 ${T('현재 층')}</small><b>${AIO.esc(T(C.name))}</b>${C.desc ? `<i>${AIO.esc(T(C.desc))}</i>` : ''}</div>` : ''; })()}<button class="ep-arrow" data-step="1">▲</button>`
-        + rows.map(({ lv, L, f }) => { const full = `${T(L.name)}${L.desc ? ' — ' + T(L.desc) : ''}`; return `<button data-floor="${lv}" class="ep-floor ${towerFloor === lv ? 'on' : ''} ${f.urgent ? 'alert' : ''}" title="${AIO.esc(full)}" data-full="${AIO.esc(full)}"><b>${L.short}</b><span>${AIO.esc(T(L.name.split(' ').slice(1).join(' ')))}</span><em>${f.people}</em></button>`; }).join('')
-        + `<button class="ep-arrow" data-step="-1">▼</button></div>`;
+      html += `<div class="elev-panel"><div class="ep-title">🛗 ${T('층 이동')}</div>${(() => { const C = towerFloor != null ? S.levels[towerFloor] : null; return C ? `<div class="ep-cur"><small>📍 ${T('현재 층')}</small><b>${AIO.esc(T(C.name))}</b>${C.desc ? `<i>${AIO.esc(T(C.desc))}</i>` : ''}</div>` : ''; })()}<div class="ep-list"><button class="ep-arrow" data-step="1">▲</button>`
+        + rows.map(({ lv, L, f }) => { const full = `${T(L.name)}${L.desc ? ' — ' + T(L.desc) : ''}`; return `<button data-floor="${lv}" class="ep-floor ${towerFloor === lv ? 'on' : ''} ${f.urgent ? 'alert' : ''} heat-${world.heatOf(f.people)}" title="${AIO.esc(full)}" data-full="${AIO.esc(full)}"><b>${L.short}</b><span>${AIO.esc(T(L.name.split(' ').slice(1).join(' ')))}</span><em>${f.people}</em></button>`; }).join('')
+        + `<button class="ep-arrow" data-step="-1">▼</button></div></div>`;
     }
-    if (nav.innerHTML !== html) nav.innerHTML = html;
+    if (nav.innerHTML !== html) {
+      // 층 목록만 따로 스크롤 — 다시 그려도 보던 위치 그대로 (아래층을 눌렀는데 맨 위로 튀어 올라가던 문제)
+      const old = nav.querySelector('.ep-list'), top = old ? old.scrollTop : 0, left = old ? old.scrollLeft : 0;
+      nav.innerHTML = html;
+      const list = nav.querySelector('.ep-list'); if (list) { list.scrollTop = top; list.scrollLeft = left; }
+    }
   }
   function stepFloor(d) {
     const tower = world.S.buildings.find((b) => b.type === 'tower');
@@ -112,9 +118,11 @@
     const i = Math.max(0, tower.levels.indexOf(towerFloor));
     towerFloor = tower.levels[Math.max(0, Math.min(tower.levels.length - 1, i + d))];
     enter('tower', towerFloor);
+    const on = nav.querySelector(`.ep-floor[data-floor="${towerFloor}"]`); if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // ▲▼ 로 옮길 때만 안 보이면 살짝 따라간다
   }
   nav.addEventListener('click', (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
+    touched(); if (follow) stopFollow();      // 층 · 건물을 직접 고르면 따라가기는 끝
     if (b.dataset.zone) {
       const S = world.S, IN = S.indoor, L = S.levels[0], P = AIO.iso.P;
       const [x, y] = b.dataset.zone === 'in' ? P(IN.x1 / 2, IN.y1 / 2) : P((IN.x1 + L.W) / 2 + 2, IN.y1 * 0.45 + 4);
@@ -132,6 +140,101 @@
     if (!fitted) { fitCampus(true); fitted = true; }
     renderNav();
   };
+
+  // ---------------- 🎯 따라가기 · 자동 포커스
+  //   따라가기: 캐릭터를 카메라가 계속 따라간다 (층을 옮기면 그 층으로) — 지도를 끌거나 층을 고르거나 Esc 면 끝 (확대 · 축소는 그대로)
+  //   자동 포커스: 어느 세션에 방금 새 지시(사용자 요청)가 들어오면 그 캐릭터의 층을 비추거나(floor) 따라간다(follow) — 표시 · 알림 옵션
+  let follow = null;            // { id, manual }
+  let userAt = -1e9;            // 마지막으로 내가 화면을 만진 때 (처음엔 안 만진 것으로)
+  const touched = () => { userAt = performance.now(); };
+  const T = (x, ...a) => (AIO.tr ? AIO.tr(x, ...a) : x);
+  const bar = document.createElement('div'); bar.className = 'follow-bar'; bar.hidden = true; document.body.appendChild(bar);
+  let noteTimer = 0;
+  const who = (id) => { const e = world.ents.get(id), s = e && e.s; const nm = s && e.kind === 'main' ? ((s.persona && AIO.pname && AIO.pname(s.persona)) || s.title || '') : (e && (e.name || (e.role && T(e.role)))) || ''; return `${id.startsWith('S:') ? AIO.ui.code(id.slice(2)) || '' : ''} ${nm}`.trim(); };
+  function showBar(html, sticky) {
+    clearTimeout(noteTimer);
+    bar.innerHTML = html; bar.hidden = false;
+    if (!sticky) noteTimer = setTimeout(() => { if (!follow) bar.hidden = true; else followBar(); }, 4500);
+  }
+  const followBar = () => showBar(`🎯 <b>${AIO.esc(who(follow.id))}</b> ${T('따라가는 중')}<button data-unfollow title="${T('그만 따라가기 (Esc)')}">✕</button>`, true);
+  function startFollow(id, manual) {
+    const e = world.ents.get(id); if (!e) return;
+    follow = { id, manual: !!manual };
+    focus(id);
+    // 따라가는 캐릭터의 세부 정보를 왼쪽에 — 대상이 바뀌면(자동 포커스 · 최근 세션) 같이 바뀐다. 휴대폰은 상세 창이 지도를 가려서 빼고
+    if (world.selected !== id && innerWidth > 760) AIO.ui.open(id);
+    world.pulse = { id, until: world.t + 3 };
+    followBar();
+  }
+  function stopFollow() { follow = null; bar.hidden = true; }
+  bar.addEventListener('click', (ev) => { if (ev.target.closest('[data-unfollow]')) stopFollow(); else if (follow) { AIO.ui.open(follow.id); } });
+  document.addEventListener('click', (ev) => { const b = ev.target.closest('[data-follow]'); if (!b) return; ev.preventDefault(); const id = b.dataset.follow; if (follow && follow.id === id) stopFollow(); else startFollow(id, true); });
+  window.AIO_follow = { start: startFollow, stop: stopFollow, get id() { return follow && follow.id; } };
+  function followStep() {
+    if (!follow) return;
+    const e = world.ents.get(follow.id);
+    if (!e || e.fading || e.hidden) { stopFollow(); return; }
+    const L = world.levelOf(e), b = L.bld !== 'out' ? world.buildingOf(e.lv) : null;
+    if (b && b.type === 'tower' && towerFloor !== e.lv) { towerFloor = e.lv; renderNav(); }      // 엘리베이터로 다른 층에 내리면 그 층으로
+    const p = world.entityWorldPos(follow.id); if (!p) return;
+    const z = cam.tz || cam.z;
+    cam.tx = p[0] + (b ? (pad().r - 380) / 2 / z : 0); cam.ty = p[1];
+    cam.userMoved = true;
+  }
+  /** 새 지시가 들어온 세션 찾기: 마지막 요청 시각(turnStartedAt)이 바뀐 세션 중 가장 최근 */
+  const lastTurn = new Map(); let afPrimed = false;
+  function autoFocus(st) {
+    let best = null;
+    for (const s of st.sessions || []) {
+      if (s.kind === 'app') continue;
+      const t = s.turnStartedAt || 0, prev = lastTurn.get(s.id);
+      lastTurn.set(s.id, t);
+      if (!afPrimed || prev === undefined || !t || t <= prev) continue;
+      if (!best || t > best.t) best = { s, t };
+    }
+    afPrimed = true;
+    const mode = world.opts.autoFocus || 'off';
+    if (mode === 'latest') { followLatest(st); return; }
+    if (!best || mode === 'off') return;
+    if (performance.now() - userAt < (+world.opts.afQuiet || 0) * 1000) return;     // 내가 방금 화면을 만졌으면 쉬기
+    if (follow && follow.manual) return;                                              // 내가 고른 캐릭터를 따라가는 중이면 뺏지 않는다
+    const id = 'S:' + best.s.id;
+    setTimeout(() => {                                    // 자리 옮기기(planning)가 시작된 뒤에 — 일하러 가는 층을 비춘다
+      const e = world.ents.get(id); if (!e) return;
+      if (mode === 'follow') { startFollow(id, false); showBar(`📍 <b>${AIO.esc(who(id))}</b> ${T('새 지시')} · ${T('따라가는 중')}<button data-unfollow>✕</button>`, true); return; }
+      if (follow) stopFollow();
+      const lv = e.spot && e.spot.lv != null ? e.spot.lv : e.lv;
+      const L = world.S.levels[lv], b = L && L.bld !== 'out' ? world.buildingOf(lv) : null;
+      if (b && b.type === 'tower') enter(b.id, lv); else focus(id);
+      world.pulse = { id, until: world.t + 6 };
+      showBar(`📍 <b>${AIO.esc(who(id))}</b> ${T('새 지시')} → ${AIO.esc(T((L && L.name) || ''))}<button data-follow="${id}" title="${T('이 캐릭터 따라가기')}">🎯</button>`);
+    }, 450);
+  }
+
+  /** 🆕 가장 최근에 움직인 세션(lastActive 가 가장 늦은 세션)을 계속 따라간다 — 다른 세션이 더 최근이 되면 갈아탄다
+   *  너무 자주 바뀌지 않게: 한 번 갈아타면 8초는 그대로, 새 세션이 3초 넘게 더 최근일 때만 */
+  let latestAt = 0;
+  function followLatest(st) {
+    if (performance.now() - userAt < (+world.opts.afQuiet || 0) * 1000) return;
+    if (follow && follow.manual) return;
+    let best = null;
+    for (const s of st.sessions || []) {
+      if (s.kind === 'app' || s.custom || !s.lastActive) continue;
+      if (!world.ents.get('S:' + s.id)) continue;
+      if (!best || s.lastActive > best.lastActive) best = s;
+    }
+    if (!best) return;
+    const id = 'S:' + best.id;
+    if (follow && follow.id === id) return;
+    if (follow) {
+      const cur = (st.sessions || []).find((s) => 'S:' + s.id === follow.id);
+      if (performance.now() - latestAt < 8000) return;
+      if (cur && best.lastActive - (cur.lastActive || 0) < 3000) return;
+    }
+    latestAt = performance.now();
+    startFollow(id, false);
+    showBar(`🆕 <b>${AIO.esc(who(id))}</b> ${T('가장 최근 세션')} · ${T('따라가는 중')}<button data-unfollow>✕</button>`, true);
+  }
 
   /** jump to whoever was clicked in the side panel / ticker */
   function focus(id) {
@@ -159,16 +262,18 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    const dark = AIO.prefs ? AIO.prefs.isDark() : matchMedia('(prefers-color-scheme: dark)').matches;
-    const night = world.night ? world.night().night : false;
-    const sky = AIO.prefs && AIO.prefs.sky();   // 계정 옵션의 맵 배경
-    g.addColorStop(0, night ? '#1d2547' : sky ? sky[0] : dark ? '#2c2823' : '#cfe6f5'); g.addColorStop(1, night ? '#3a4170' : sky ? sky[1] : dark ? '#1b1815' : '#eef3ea');
+    // 배경 하늘은 시간대(실제 시간 · 아침 · 낮 · 노을 · 밤)를 따른다: 그래픽 테마의 그 시간대 하늘 → (낮이면) 계정 옵션의 맵 배경 → 기본 하늘
+    const N = world.night ? world.night() : { phase: 'day', bg: ['#cfe6f5', '#eef3ea'] };
+    const sky = (AIO.skins && AIO.skins.sky(N.phase)) || (N.phase === 'day' && AIO.prefs && AIO.prefs.sky()) || N.bg;
+    g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
     world.draw(ctx, cam, dpr, vw, vh);
+    if (AIO.skins) AIO.skins.drawFx(ctx, dpr, vw, vh, performance.now() / 1000);   // 박쥐 · 눈 · 별 · 마법 빛 · 유령
   }
   function tick(nowMs, dtMax) {
     const dt = Math.min(dtMax, (nowMs - last) / 1000);
     last = nowMs;
+    followStep();
     cam.step(dt);
     updateView();
     const steps = dt > 0.12 ? 5 : 1;
@@ -188,7 +293,7 @@
     cam.z = cam.tz = nz;
     cam.x = cam.tx = wx - (sx - vw / 2) / nz;
     cam.y = cam.ty = wy - (sy - vh / 2) / nz;
-    cam.userMoved = true;
+    cam.userMoved = true; touched();
   };
   canvas.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
@@ -215,7 +320,7 @@
       if (drag.moved) {
         cam.tx = drag.cx - dx / cam.z; cam.ty = drag.cy - dy / cam.z;
         cam.x = cam.tx; cam.y = cam.ty;
-        cam.userMoved = true;
+        cam.userMoved = true; touched(); if (follow) stopFollow();
         canvas.classList.add('dragging');
       }
       AIO.ui.tooltip(null);
@@ -265,15 +370,21 @@
     if (e.target.closest && e.target.closest('input,textarea')) return;
     if (e.key === '+' || e.key === '=') { cam.tz = Math.min(3.2, cam.tz * 1.2); cam.userMoved = true; }
     if (e.key === '-') { cam.tz = Math.max(0.04, cam.tz / 1.2); cam.userMoved = true; }
-    if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); stepFloor(e.key === 'PageUp' ? 1 : -1); }
+    if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); touched(); if (follow) stopFollow(); stepFloor(e.key === 'PageUp' ? 1 : -1); }
+    if (e.key === 'Escape' && follow) stopFollow();
   });
   window.addEventListener('resize', resize);
+  // 🎨 그래픽 테마가 바뀌면 맵을 다시 지어 소품을 놓고, 그림 캐시를 비운다
+  window.addEventListener('aio:pxload', () => { world.caches.clear(); world.chunks.clear(); world.sprites.clear(); world.px = 0; });   // 👾 도트 에셋을 다 불러오면 바닥 · 벽을 다시 깐다
+  window.addEventListener('aio:skin', () => { world.caches.clear(); world.sprites.clear(); world.chunks.clear(); world.px = 0; world.sig = null; if (world.lastState) world.setState(world.lastState); });
+  // 👁️ 세션 보기 필터가 바뀌면 마지막으로 받은 상태를 다시 걸러서 그린다
+  if (AIO.view) { AIO.view.init(world); window.addEventListener('aio:view', () => { const r = AIO.view.raw; if (!r || !r.sessions) return; const v = AIO.view.apply(r); world.setState(v); AIO.ui.render(v); }); }
 
   // ---------------- boot
   AIO.ui.init(world, { onFocus: focus, onFit: goCampus, onSide: () => { if (!cam.userMoved) setTimeout(() => fitCampus(false), 50); } });
   resize();
   AIO.data.start({
-    onState: (st) => { world.setState(st); AIO.ui.render(st); },
+    onState: (st) => { const v = AIO.view ? AIO.view.apply(st) : st; world.setState(v); AIO.ui.render(v); autoFocus(v); },
     onMode: (m, info) => AIO.ui.setMode(m, info),
   });
   requestAnimationFrame(frame);

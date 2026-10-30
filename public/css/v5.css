@@ -64,7 +64,7 @@ body.card-outline .card, body.card-outline .pop, body.card-outline #drawer, body
   #tabbar button:active { background: var(--bg2); }
   .tb-dot { position: absolute; top: 2px; right: 26%; width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
   /* 상단은 브랜드 · 언어 · 로그인만 (맵 · 설정 · 계정 · 관리는 탭바로) */
-  #btnMap, #btnTheme, #btnAcct, .dock, #btnInsights, #btnSide { display: none !important; }
+  #btnMap, #btnAcct, .dock, #btnInsights, #btnSide { display: none !important; }
   #ticker { bottom: calc(66px + env(safe-area-inset-bottom)); height: 30px; }
   body.no-ticker #floors { bottom: calc(76px + env(safe-area-inset-bottom)); }
   #floors { bottom: calc(104px + env(safe-area-inset-bottom)) !important; }

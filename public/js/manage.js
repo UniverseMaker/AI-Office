@@ -43,7 +43,7 @@
       if (e.kind === 'intern') return { grade: ladder()[1], role: '인턴', kind: '임시 에이전트' };
       return { grade: '', role: e.role || '', kind: '직원' };
     },
-    short(e) { const h = hr.of(e); return h.role === '팀장' ? `${h.grade}·팀장` : h.grade; },
+    short(e) { const h = hr.of(e), g = tr(h.grade); return h.role === '팀장' ? `${g}·${tr('팀장')}` : g; },   // 보이는 글자라 지금 언어로
   };
   AIO.hr = hr;
 
@@ -73,9 +73,10 @@
     x += `<div class="mg-row kb-link"><span class="mg-lbl">🗂️ ${tr('칸반 카드')}</span>${task && task.key
       ? `<button class="btn ghost sm" data-mg="kb-open" data-v="${esc(task.key)}">${esc(task.key)} · ${esc(String(task.title || '').slice(0, 40))}</button><button class="btn ghost sm ${task.sync !== false ? 'on' : ''}" data-mg="kb-sync">${task.sync !== false ? '🔄 ' + tr('자동 갱신 중') : '⏸️ ' + tr('자동 갱신 꺼짐')}</button><button class="btn ghost sm" data-mg="kb-timer" data-v="${esc(task.key)}">⏱️ ${tr('타이머')}</button><button class="btn ghost sm" data-mg="kb-unlink">${tr('연결 해제')}</button>`
       : `<input class="mg-in" data-mgf="kbkey" placeholder="${tr('카드 번호 (예: ARC-12)')}"><button class="btn ghost sm" data-mg="kb-link">🔗 ${tr('연결')}</button><button class="btn sm" data-mg="kb-create">✨ ${tr('카드 자동 생성 · 연결')}</button>`}</div>`;
-    { const W = world, live = W && W.sessions ? W.sessions.find((y) => y.id === s.id) : null, pz = (live && live.persona) || s.persona || {};
-      x += `<div class="mg-row mg-persona"><span class="mg-lbl">🧑 ${tr('캐릭터')}</span><span class="mg-pz">${esc(pz.flag || '')} <b>${esc(pz.name || '')}</b> <small>${esc(tr(pz.country || ''))} · ${tr('{0}세', pz.age || '-')} · ${esc(pz.mbti || '')}${pz.custom ? '' : ' · ' + tr('자동')}</small></span>`
-        + `<input class="mg-in" data-mgf="pzname" placeholder="${tr('이름 직접 입력')}" value="${pz.custom ? esc(pz.name || '') : ''}"><select class="mg-in" data-mgf="pznat">${(M.nations || []).map((n) => `<option value="${n.code}" ${n.code === pz.nat ? 'selected' : ''}>${n.flag} ${esc(tr(n.ko))}</option>`).join('')}</select>`
+    if (s.custom || (world && world.sessions && (world.sessions.find((y) => y.id === s.id) || {}).custom)) x += `<div class="mg-row"><span class="mg-lbl">🧑 ${tr('캐릭터')}</span><span class="muted">${tr('직접 만든 캐릭터예요 — 이름 · 외모 · 행동 · 돈은 관리 센터 › 🧑 캐릭터에서 고쳐요')}</span><button class="btn ghost sm" data-mg="chars-open">${tr('캐릭터 편집')}</button></div>`;
+    else { const W = world, live = W && W.sessions ? W.sessions.find((y) => y.id === s.id) : null, pz = (live && live.persona) || s.persona || {};
+      x += `<div class="mg-row mg-persona"><span class="mg-lbl">🧑 ${tr('캐릭터')}</span><span class="mg-pz">${esc(pz.flag || '')} <b>${esc(AIO.pname(pz))}</b> <small>${esc(tr(pz.country || ''))} · ${tr('{0}세', pz.age || '-')} · ${esc(pz.mbti || '')}${pz.custom ? '' : ' · ' + tr('자동')}</small></span>`
+        + `<input class="mg-in" data-mgf="pzname" placeholder="${tr('이름 직접 입력')}" value="${pz.custom ? esc(pz.name || '') : ''}"><select class="mg-in" data-mgf="pzgender">${[['M', '♂ 남성'], ['F', '♀ 여성'], ['X', '기타']].map(([k, l]) => `<option value="${k}" ${k === pz.gender ? 'selected' : ''}>${tr(l)}</option>`).join('')}</select><select class="mg-in" data-mgf="pznat">${(M.nations || []).map((n) => `<option value="${n.code}" ${n.code === pz.nat ? 'selected' : ''}>${n.flag} ${esc(tr(n.ko))}</option>`).join('')}</select>`
         + `<button class="btn ghost sm" data-mg="pz-save">${tr('저장')}</button><button class="btn ghost sm" data-mg="pz-rand" data-v="name">🎲 ${tr('이름')}</button><button class="btn ghost sm" data-mg="pz-rand" data-v="nat">🎲 ${tr('국적')}</button><button class="btn ghost sm" data-mg="pz-rand" data-v="all">🎲 ${tr('전부')}</button>${pz.custom ? `<button class="btn ghost sm" data-mg="pz-clear">${tr('자동으로')}</button>` : ''}</div>`;
       if (!M.nations && !M.nationsLoading) { M.nationsLoading = true; jfetch('/api/persona/nations').then((r) => { M.nations = r.nations; if (AIO.detail && AIO.detail.refresh) AIO.detail.refresh(); }).catch(() => { M.nationsLoading = false; }); } }
     const w = s.wallet || {};
@@ -86,9 +87,9 @@
         + `<table class="mg-paytbl"><tr><th>${tr('직급 기본급')} (Lv.${P.level})</th><td>${n(P.base)}</td></tr><tr><th>${tr('근속 인상')}</th><td>${tr('{0}년 · +{1}%', P.years, P.raisePct)}</td></tr><tr><th>${tr('근무 상태')}</th><td>${esc(tr(P.status))} · ${Math.round(P.factor * 100)}%</td></tr><tr><th>${tr('다음 인상')}</th><td>${tr('{0}일 뒤 → 월 {1}', P.nextRaiseDays, n(P.nextMonthly))}</td></tr><tr><th>${tr('누적 급여 · 성과급')}</th><td>${n(w.salaryTotal)} · ${n(w.perfTotal)} <small class="muted">(${tr('오늘 성과급 {0}', n(w.perfToday))})</small></td></tr></table>`
         + `<div class="mg-slips"><small class="muted">${tr('급여명세 (최근)')}</small>${(w.slips || []).length ? w.slips.map((sl) => `<div class="mg-slip"><span>${esc(sl.day)}</span><span>${tr(sl.status)}${sl.days > 1 ? ` · ${tr('{0}일치', sl.days)}` : ''}</span><b>+${n(sl.amount)}</b><small class="muted">${tr('성과급 {0}', n(sl.perf))}</small></div>`).join('') : `<span class="muted">${tr('내일 첫 일급이 나와요')}</span>`}</div></details>`;
     }
-    x += `<details class="mg-wallet"><summary>💰 ${tr('지갑')} <b>${(w.coins || 0).toLocaleString()}</b> ${tr('코인')} <small>${tr('누적 {0} · 일한 {1}분', (w.earned || 0).toLocaleString(), w.workMin || 0)}${w.home ? ' · ' + w.home.icon : ''}${w.car ? ' ' + w.car.icon : ''}</small></summary>`
+    x += `<details class="mg-wallet"><summary>💰 ${tr('지갑')} <b>${(w.coins || 0).toLocaleString()}</b> ${tr('코인')} <small>${tr('누적 {0} · 일한 {1}분', (w.earned || 0).toLocaleString(), w.workMin || 0)}${w.loan ? ' · 💸 ' + tr('대출 {0}', Number(w.loan).toLocaleString()) : ''}${w.deposit ? ' · 🐷 ' + tr('예금 {0}', Number(w.deposit).toLocaleString()) : ''}${w.status && w.status !== '정상' && w.status !== '대출 중' ? ' · 🚨 ' + tr(w.status) : ''}${w.home ? ' · ' + w.home.icon : ''}${w.car ? ' ' + w.car.icon : ''}</small></summary>`
       + `<div class="mg-owned">${(w.items || []).map((it) => `<span title="${esc(it.name)}">${it.icon}</span>`).join('') || `<span class="muted">${tr('아직 산 게 없어요')}</span>`} <small class="muted">🍽️ ${tr('식사 {0}번', w.meals || 0)}${w.last ? ` · ${tr('최근')}: ${w.last.icon} ${esc(w.last.name)}` : ''}</small></div>`
-      + `<div class="mg-shop" data-shop>${tr('불러오는 중…')}</div><div class="mg-row"><input class="mg-in" data-mgf="grant" type="number" placeholder="${tr('코인')}"><button class="btn ghost sm" data-mg="grant">💸 ${tr('지급')}</button><button class="btn ghost sm" data-mg="disclose">🔐 ${tr('정보공개 설정')}</button></div></details>`;
+      + `<div class="mg-shop" data-shop>${tr('불러오는 중…')}</div><div class="mg-row"><input class="mg-in" data-mgf="grant" type="number" placeholder="${tr('코인')}"><button class="btn ghost sm" data-mg="grant">💸 ${tr('지급')}</button><button class="btn ghost sm" data-mg="company-open">💼 ${tr('회사 관리')}</button><button class="btn ghost sm" data-mg="disclose">🔐 ${tr('정보공개 설정')}</button></div></details>`;
     x += `<details class="mg-memo" ${m.memo ? 'open' : ''}><summary>📝 ${tr('메모')}${m.memoAt ? ` <small>${tr('{0} 전 수정', ago(m.memoAt))}</small>` : ''}</summary><textarea class="mg-ta" data-mgf="memo" placeholder="${tr('이 세션에 대한 메모…')}">${esc(m.memo || '')}</textarea><button class="btn sm" data-mg="memo">${tr('메모 저장')}</button></details>`;
     return x + '</div>';
   }
@@ -113,8 +114,10 @@
         case 'kb-create': { toast(tr('카드 만드는 중…')); const r = await AIO.kanban.link({ id, create: true }); toast(tr('✨ {0} 만들고 연결했어요', r.card.key)); break; }
         case 'kb-unlink': await AIO.kanban.link({ id, key: null }); toast(tr('연결을 끊었어요')); break;
         case 'kb-sync': await jfetch('/api/tcc/sync', { id, sync: !((s.meta || {}).task || {}).sync === false ? false : true }); break;
-        case 'pz-save': { const name = box.querySelector('[data-mgf=pzname]').value.trim(), nat = box.querySelector('[data-mgf=pznat]').value; await jfetch('/api/persona', { id, persona: { ...(name ? { name } : {}), nat } }); toast(tr('🧑 캐릭터를 저장했어요')); break; }
-        case 'pz-rand': { const nat = box.querySelector('[data-mgf=pznat]').value; const r = await jfetch('/api/persona', { id, random: btn.dataset.v, ...(btn.dataset.v === 'name' ? { persona: { nat } } : {}) }); toast(tr('🎲 {0} {1}', r.persona.flag, r.persona.name)); break; }
+        case 'chars-open': open('chars'); break;
+        case 'company-open': open('company'); break;
+        case 'pz-save': { const name = box.querySelector('[data-mgf=pzname]').value.trim(), nat = box.querySelector('[data-mgf=pznat]').value, gender = box.querySelector('[data-mgf=pzgender]').value; await jfetch('/api/persona', { id, persona: { ...(name ? { name } : {}), nat, gender } }); toast(tr('🧑 캐릭터를 저장했어요')); break; }
+        case 'pz-rand': { const nat = box.querySelector('[data-mgf=pznat]').value; const gender = box.querySelector('[data-mgf=pzgender]').value; const r = await jfetch('/api/persona', { id, random: btn.dataset.v, ...(btn.dataset.v === 'name' ? { persona: { nat, gender } } : {}) }); toast(tr('🎲 {0} {1}', r.persona.flag, r.persona.name)); break; }
         case 'pz-clear': await jfetch('/api/persona', { id, clear: true }); toast(tr('자동 인물로 돌렸어요')); break;
         case 'buy': { const r = await jfetch('/api/econ/buy', { id, item: btn.dataset.v }); toast(tr('🛒 샀어요')); break; }
         case 'grant': await jfetch('/api/econ/grant', { id, coins: +box.querySelector('[data-mgf=grant]').value || 0 }); toast(tr('💸 지급했어요')); break;
@@ -148,7 +151,7 @@
     if (M.tab === 'users') loadUsers();
   }
   function close() { el().hidden = true; }
-  const TABS = [['sessions', '👥 세션 관리'], ['kanban', '🗂️ 칸반'], ['mgm', '🏛️ 행정'], ['archive', '📦 세션 보관함'], ['building', '🏢 빌딩 관리'], ['users', '🪪 계정 · 정보공개'], ['admin', '🔌 연동 · 설정']];
+  const TABS = [['sessions', '👥 세션 관리'], ['kanban', '🗂️ 칸반'], ['mgm', '🏛️ 행정'], ['chars', '🧑 캐릭터'], ['company', '💼 회사'], ['archive', '📦 세션 보관함'], ['building', '🏢 빌딩 관리'], ['users', '🪪 계정 · 정보공개'], ['admin', '🔌 연동 · 설정']];
   function renderShell() {
     const box = el();
     box.innerHTML = `<div class="mg-card"><div class="mg-head"><h2>🗂️ ${tr('관리 센터')}</h2><div class="mg-tabs">${TABS.map(([k, l]) => `<button data-mtab="${k}" class="${M.tab === k ? 'on' : ''}">${tr(l)}</button>`).join('')}</div><button class="mg-x" data-mclose>✕</button></div><div class="mg-body" id="mgBody"></div></div>`;
@@ -162,6 +165,8 @@
     else if (M.tab === 'archive') b.innerHTML = archiveView();
     else if (M.tab === 'building') b.innerHTML = buildingView();
     else if (M.tab === 'users') b.innerHTML = usersView();
+    else if (M.tab === 'company') { if (!b.querySelector('.co-host')) b.innerHTML = '<div class="co-host"></div>'; AIO.company.mount(b.querySelector('.co-host')); }
+    else if (M.tab === 'chars') { if (!b.querySelector('.ch-host')) b.innerHTML = '<div class="ch-host"></div>'; AIO.chars.mount(b.querySelector('.ch-host')); }
     else if (M.tab === 'mgm') { if (!b.querySelector('.mm-host')) b.innerHTML = '<div class="mm-host"></div>'; AIO.mgm.mount(b.querySelector('.mm-host')); }
     else if (M.tab === 'kanban') { if (!b.querySelector('.kb-host')) { b.innerHTML = '<div class="kb-host"></div>'; } AIO.kanban.mount(b.querySelector('.kb-host')); }
     else b.innerHTML = adminView();
@@ -440,10 +445,11 @@
     try {
       const [k, m, w] = await Promise.all([jfetch('/api/keys'), jfetch('/api/meta'), jfetch('/api/webhooks')]);
       M.keys = k.keys; M.settings = m.settings; M.archStatus = m.archive; M.hooks = w.hooks; M.hookLog = w.log; M.hookCols = w.columns; M.hookDefs = w.defaults;
+      M.syncUps = (await jfetch('/api/transfer/v1/uploads').catch(() => ({ uploads: [] }))).uploads || [];
     } catch (e) { M.adErr = e.message; }
     if (M.tab === 'admin') renderBody();
   }
-  const SCOPE = { full: '전체 (읽기 · 메모/업무 수정 · 보관함)', read: '읽기 전용', transfer: '세션 전송 전용 (대화 원문 내려받기)' };
+  const SCOPE = { full: '전체 (읽기 · 메모/업무 수정 · 보관함)', read: '읽기 전용', transfer: '세션 전송 전용 (대화 원문 내려받기)', sync: '세션 동기화 (내려받기 + 다른 컴퓨터 작업 올려 합치기)' };
   function adminView() {
     if (M.adErr) return errBox(M.adErr);
     if (!M.settings) return `<div class="loading">${tr('불러오는 중…')}</div>`;
@@ -455,6 +461,11 @@
     h += `<div class="mg-row"><span class="mg-lbl">${tr('주기')}</span><select data-set="archiveEveryMin">${[1, 2, 5, 10, 30].map((n) => `<option value="${n}" ${st.archiveEveryMin === n ? 'selected' : ''}>${tr('{0}분마다', n)}</option>`).join('')}</select></div>`;
     h += `<label class="mg-chk"><input type="checkbox" data-set="archiveMedia" ${st.archiveMedia ? 'checked' : ''}> ${tr('대화에 오간 이미지도 파일로 저장')}</label>`;
     h += `<p class="muted">${M.archStatus?.at ? tr('마지막 자동 보관: {0} 전 · {1}개 갱신', ago(M.archStatus.at), M.archStatus.saved) : ''}</p><button class="btn sm" data-ad="snapall">🔄 ${tr('지금 전부 보관')}</button></div>`;
+    h += `<div class="bd-sec"><h3>👥 ${tr('모든 계정의 세션 보기')}</h3>`;
+    h += `<label class="mg-chk"><input type="checkbox" data-set="allSessions" ${st.allSessions !== false ? 'checked' : ''}> ${tr('돌고 있지 않은 대화도 늘 보이기 (다른 계정으로 바꿔 둔 동안 · 창을 닫은 대화)')}</label>`;
+    h += `<div class="mg-row"><span class="mg-lbl">${tr('범위')}</span><select data-set="allSessionsDays">${[[0, '전부'], [1, '최근 1일'], [3, '최근 3일'], [7, '최근 7일'], [30, '최근 30일']].map(([n, l]) => `<option value="${n}" ${(st.allSessionsDays || 0) === n ? 'selected' : ''}>${tr(l)}</option>`).join('')}</select></div>`;
+    h += `<label class="mg-chk"><input type="checkbox" data-set="allSessionsArchived" ${st.allSessionsArchived ? 'checked' : ''}> ${tr('Claude 데스크톱에서 보관(아카이브)한 대화도')}</label>`;
+    h += `<p class="muted">${tr('대화 원문은 이 PC 에 하나뿐이고 계정마다 그걸 가리키는 등록만 있어요. 그래서 계정을 바꿔도 같은 대화예요 — 오래 쉰 대화는 지하휴게실 · 숙소 · 감옥으로 내려가요.')}</p></div>`;
     h += `<div class="bd-sec"><h3>🎖️ ${tr('직급 체계')}</h3><div class="mg-row">${[['academic', '🎓 연구원 · 교수 (기본)'], ['corporate', '🏢 사원 · 대리 · 과장 · 부장'], ['custom', '✏️ 직접 입력']].map(([k, l]) => `<label class="mg-chk"><input type="radio" name="rk" data-setr="rankScheme" value="${k}" ${st.rankScheme === k ? 'checked' : ''}> ${tr(l)}</label>`).join('')}</div>`;
     h += `<textarea class="mg-ta" data-setv="rankCustom" placeholder="${tr('낮은 직급부터 쉼표로 — 예: 수습, 사원, 선임, 책임, 수석')}">${esc(st.rankCustom || '')}</textarea><button class="btn ghost sm" data-ad="rankCustom">${tr('직접 입력 저장')}</button>`;
     h += `<p class="muted">${tr('지금 사다리')}: ${esc(hr.ladder().join(' → '))}</p></div>`;
@@ -468,10 +479,20 @@
     if (M.newKey) h += `<div class="ad-key">🔑 ${tr('새 키 (지금 한 번만 보여요 — 복사해 두세요)')}<code>${esc(M.newKey)}</code></div>`;
     h += `<div class="mg-row"><input class="mg-in" data-keyname placeholder="${tr('키 이름 (예: 칸반 · 세션 스위처)')}"><select data-keyscope>${Object.entries(SCOPE).map(([k, l]) => `<option value="${k}">${tr(l)}</option>`).join('')}</select><button class="btn sm" data-ad="newkey">${tr('발급')}</button></div>`;
     h += `<table class="mg-table"><tbody>${(M.keys || []).map((k) => `<tr><td><b>${esc(k.name)}</b><small>${esc(k.prefix)}… · ${esc(tr(SCOPE[k.scope || 'full']))}</small></td><td><small>${tr('발급 {0} 전', ago(k.created))} · ${k.last ? tr('마지막 사용 {0} 전', ago(k.last)) : tr('아직 안 씀')}</small></td><td><button class="btn ghost sm" data-ad="revoke" data-k="${esc(k.id)}">${tr('폐기')}</button></td></tr>`).join('') || `<tr><td class="muted">${tr('발급한 키가 없어요')}</td></tr>`}</tbody></table></div>`;
-    h += `<div class="bd-sec"><h3>🔁 ${tr('세션 전송 (세션 스위처 연동)')}</h3><p class="muted">${tr('「클로드 코드세션 스위처」가 이 서버에서 대화를 통째로 받아 자기 컴퓨터에 복원할 수 있어요. 받은 zip 은 세션 스위처 백업 형식 그대로라 「백업 / 복원 › 가져오기」에 바로 넣으면 돼요. 문서')}: <a href="/api/transfer/v1" target="_blank">/api/transfer/v1</a> · <a href="https://github.com/UniverseMaker/AI-Office/blob/main/docs/TRANSFER_API.md" target="_blank">TRANSFER_API.md</a></p>`;
-    h += `<pre class="ad-doc">curl -H "Authorization: Bearer aio_…(전송 키)" ${esc(location.origin)}/api/transfer/v1/sessions
-curl -H "Authorization: Bearer aio_…" -o sessions.zip ${esc(location.origin)}/api/transfer/v1/bundle
-curl -H "Authorization: Bearer aio_…" -o pick.zip "${esc(location.origin)}/api/transfer/v1/bundle?ids=&lt;id&gt;,&lt;id&gt;"</pre></div></div>`;
+    h += `<div class="bd-sec"><h3>🔁 ${tr('세션 전송 · 동기화 (원격 작업)')}</h3><p class="muted">${tr('대화를 다른 컴퓨터로 내려받아 이어서 작업하고, 다시 올리면 이 서버에 줄 단위로 합쳐요 (어느 쪽 기록도 안 사라짐 · 반영 전 원본 백업 · 되돌리기). 형식은 세션 스위처 백업 zip 그대로예요. 내려받기만은 scope transfer, 올리기까지는 scope sync 키.')} ${tr('문서')}: <a href="/docs/sync-api.html" target="_blank">📄 ${tr('동기화 API 문서')}</a> · <a href="/api/transfer/v1" target="_blank">JSON</a></p>`;
+    h += `<pre class="ad-doc">curl -H "Authorization: Bearer aio_…" -o work.zip "${esc(location.origin)}/api/transfer/v1/bundle?ids=&lt;id&gt;,&lt;id&gt;"
+curl -H "Authorization: Bearer aio_…(sync 키)" -H "Content-Type: application/zip" --data-binary @work-done.zip "${esc(location.origin)}/api/transfer/v1/sync?dry_run=1"
+curl -H "Authorization: Bearer aio_…(sync 키)" -H "Content-Type: application/zip" --data-binary @work-done.zip "${esc(location.origin)}/api/transfer/v1/sync"</pre>`;
+    {
+      const ST = { receiving: '⏳ 받는 중', ready: '📦 받음', previewed: '🔍 미리 봄', applied: '✅ 반영', undone: '↩️ 되돌림' };
+      const ups = (M.syncUps || []).slice(0, 8);
+      h += `<h4 style="margin:12px 0 6px">${tr('최근 동기화')}</h4>` + (ups.length ? `<table class="mg-table"><tbody>${ups.map((u) => {
+        const r = u.result, pv = u.preview && u.preview.summary;
+        const what = r ? tr('대화 {0}개 반영 (병합 {1} · 새로 {2} · 덮어씀 {3}){4}', r.transcripts, r.merged, r.created, r.overwritten, r.skipped && r.skipped.length ? ' · ' + tr('건너뜀 {0}', r.skipped.length) : '') : pv ? tr('대화 {0}개 · 새로 {1} · 원격이 최신 {2} · 갈라짐 {3}', pv.sessions, pv.new, pv.remote_newer, pv.diverged) : `${Math.round((u.received / Math.max(1, u.size)) * 100)}%`;
+        return `<tr><td><b>${esc(tr(ST[u.status] || u.status))}</b><small>${esc(u.device || u.name || '')} · ${esc(u.by || '')} · ${new Date(u.created).toLocaleString()}</small></td><td><small>${esc(what)}</small></td><td>${u.status === 'applied' ? `<button class="mg-btn" data-ad="syncundo" data-u="${esc(u.id)}">↩️ ${tr('되돌리기')}</button>` : ''}</td></tr>`;
+      }).join('')}</tbody></table>` : `<p class="muted">${tr('아직 올린 기록이 없어요')}</p>`);
+    }
+    h += `</div></div>`;
     // 칸반 웹훅
     h += `<div class="ad-col wide"><div class="bd-sec"><h3>🗂️ ${tr('칸반 · 업무관리 자동 연동 (웹훅)')}</h3><p class="muted">${tr('세션 상태가 바뀌면 (작업중 · 결정 필요 · 완료 · 대기 · 중단 · 종료) 아래 주소로 바로 알려 줘요. 받는 쪽은 column 값으로 칸반 카드를 옮기면 됩니다. 세션에 연결한 업무(task)도 함께 보내요. 문서')}: <a href="https://github.com/UniverseMaker/AI-Office/blob/main/docs/WEBHOOKS.md" target="_blank">WEBHOOKS.md</a> · <a href="/api/v1" target="_blank">/api/v1</a></p>`;
     (M.hooks || []).forEach((wh, i) => {
@@ -509,6 +530,11 @@ curl -H "Authorization: Bearer aio_…" -o pick.zip "${esc(location.origin)}/api
       if (btn.dataset.ad === 'reload') return loadAdmin();
       if (btn.dataset.ad === 'snapall') { const r = await jfetch('/api/archive/snapshot', { all: true }); toast(tr('📦 {0}개 세션을 보관했어요', r.saved)); }
       else if (btn.dataset.ad === 'newkey') { const r = await jfetch('/api/keys', { name: document.querySelector('#mgr [data-keyname]').value || '연동', scope: document.querySelector('#mgr [data-keyscope]').value }); M.newKey = r.key; }
+      else if (btn.dataset.ad === 'syncundo') {
+        if (!confirm(tr('이 동기화를 되돌릴까요? 반영 전 원본으로 돌아가고, 그때 새로 생긴 대화는 지워져요.'))) return;
+        const r = await jfetch(`/api/transfer/v1/uploads/${btn.dataset.u}/undo`, {}).catch(async (e) => { if (/다시 바뀐/.test(e.message) && confirm(tr('반영한 뒤에 이 서버에서 또 이어 쓴 대화가 있어요. 그래도 되돌릴까요? (그 사이 기록이 사라져요)'))) return jfetch(`/api/transfer/v1/uploads/${btn.dataset.u}/undo`, { force: true }); throw e; });
+        if (r) toast(tr('↩️ 되돌렸어요 (원본 {0} · 지운 파일 {1})', r.restored, r.deleted));
+      }
       else if (btn.dataset.ad === 'revoke') { if (!confirm(tr('이 키를 폐기할까요? 이 키를 쓰는 연동이 끊겨요.'))) return; await jfetch(`/api/keys/${btn.dataset.k}`, null, 'DELETE'); }
       else if (btn.dataset.ad === 'rankCustom') { M.settings = (await jfetch('/api/settings', { rankCustom: document.querySelector('#mgr [data-setv=rankCustom]').value, rankScheme: 'custom' })).settings; toast(tr('직급 체계를 저장했어요')); }
       await loadAdmin();

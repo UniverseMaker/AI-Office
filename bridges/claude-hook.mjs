@@ -10,7 +10,9 @@
 //   }
 //
 // Never blocks Claude: 700 ms timeout, always exits 0, prints nothing.
-const PORT = 17777; // fixed
+// 포트: AI_OFFICE_PORT > data/server.json(AI-OFFICE.exe 설정) > 17777
+import { readFileSync as _rf } from 'node:fs';
+const PORT = (() => { const ok = (v) => (Number.isInteger(+v) && +v >= 1024 && +v <= 65535 ? +v : null); try { return ok(process.env.AI_OFFICE_PORT) || ok(JSON.parse(_rf(new URL('../data/server.json', import.meta.url), 'utf8')).port) || 17777; } catch { return ok(process.env.AI_OFFICE_PORT) || 17777; } })();
 let body = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => { body += c; });

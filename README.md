@@ -13,8 +13,10 @@ Claude Code · Codex · Gemini CLI · Qwen Code 는 기록을 직접 읽고, Cha
 ## 목차
 
 - [빠른 시작](#빠른-시작)
+- [서버 실행기 (AI-OFFICE.exe)](#서버-실행기-ai-officeexe)
 - [빌딩 둘러보기](#빌딩-둘러보기)
 - [맵 고르기 (실내 × 실외)](#맵-고르기-실내--실외)
+- [그래픽 · 시간대 · 보기 옵션](#그래픽--시간대--보기-옵션)
 - [관리 센터](#관리-센터)
 - [칸반 연동](#칸반-연동-flowboard)
 - [행정관리 연동](#행정관리-연동)
@@ -32,14 +34,40 @@ Claude Code · Codex · Gemini CLI · Qwen Code 는 기록을 직접 읽고, Cha
 ```bash
 git clone https://github.com/UniverseMaker/AI-Office.git
 cd AI-Office
+AI-OFFICE.exe                    # 서버 실행기(GUI) — 관리자 계정 · 포트 설정 · 시작/중지
+# 또는 명령줄로
 node server/set-admin.mjs        # 관리자 아이디 · 비밀번호(12자 이상) — 해시만 data/auth.json 에 저장
 node server/index.mjs            # http://127.0.0.1:17777
 ```
 
 - Node 18 이상, 설치할 패키지 없음.
-- 포트는 **17777 고정**(동적 포트 범위 밖). 서버는 `127.0.0.1` 에만 열린다. 바깥에서 보려면 Cloudflare Tunnel 같은 터널을 붙이면 된다(보안은 [SECURITY.md](docs/SECURITY.md)).
+- 포트는 기본 **17777**(동적 포트 범위 밖). 실행기나 `AI-OFFICE.exe config --port N` 으로 바꿀 수 있다(`data/server.json`). 서버는 `127.0.0.1` 에만 열린다. 바깥에서 보려면 Cloudflare Tunnel 같은 터널을 붙이면 된다(보안은 [SECURITY.md](docs/SECURITY.md)).
 - Windows 로그인 때 창 없이 자동 시작: `powershell -ExecutionPolicy Bypass -File autostart.ps1` (해제는 `-Remove`).
 - 서버 없이 둘러보기: `http://127.0.0.1:17777/?demo` 또는 `public/index.html` 을 그냥 열기(데모 모드).
+
+---
+
+## 서버 실행기 (AI-OFFICE.exe)
+
+폴더에 들어 있는 **`AI-OFFICE.exe` 하나로** 서버를 켜고 끄고 설정한다(.NET Framework 4.8 — Windows 10/11 기본 내장, 설치할 것 없음). 더블클릭하면 창이 열리고, 같은 파일을 명령줄에서도 쓴다.
+
+| | |
+|---|---|
+| ![실행기 상태](docs/screenshots/50_launcher_NavHome.png) **상태** — 시작 · 중지 · 재시작 · 대시보드 열기, 포트 · 가동 시간 · 세션 수 · 메모리, 최근 로그 | ![실행기 설정](docs/screenshots/50_launcher_NavSet.png) **서버 설정** — 포트(동적 포트 범위 · 윈도우 예약 · 사용 중 검사), 열어 둘 주소(이 PC 만 / 같은 네트워크), 자동 재시작 · 트레이 · Windows 로그인 때 자동 시작, Node 경로 |
+
+- **관리자 계정** 화면에서 아이디 · 비밀번호를 정한다(비밀번호는 표준입력으로만 넘겨 파일 · 로그에 남지 않음).
+- 닫으면 알림 영역(트레이)에 남고, 서버는 실행기와 따로 돈다(실행기를 꺼도 서버는 계속).
+- 서버를 끌 때는 이 PC 의 실행기만 아는 열쇠(`data/launcher.key`)로 정상 종료를 요청하고, 안 되면 강제 종료한다.
+
+```text
+AI-OFFICE.exe start [--port N] [--host 127.0.0.1|0.0.0.0] [--open]
+AI-OFFICE.exe stop | restart | status [--json] | run | open | logs [-n 50]
+AI-OFFICE.exe config [--port N] [--host H] [--node 경로]
+AI-OFFICE.exe check-port 17777
+AI-OFFICE.exe set-admin
+```
+
+다시 빌드: `launcher\build.cmd` (소스 `launcher/Launcher.cs` · `launcher/ui.xaml`).
 
 ---
 
@@ -69,6 +97,9 @@ node server/index.mjs            # http://127.0.0.1:17777
 
 조작: 드래그 이동 · 휠 확대 · 캐릭터 클릭 상세 · 더블클릭 따라가기 · 왼쪽 🛗 층 이동(`PageUp/Down`).
 
+캐릭터는 자리에서만 지내지 않는다 — 커피 · 김밥 · 라면 같은 걸 사면 카페나 **B1 구내식당**까지 걸어가 사서 그 자리에서 먹고 돌아온다.
+그리는 순서는 물건마다 실제 그림의 바닥 상자를 재서 앞뒤를 가린다(`public/js/depth.js`) — 길쭉한 책상 · 벽 · 문 옆을 지나가도 캐릭터가 가구 뒤로 숨지 않는다.
+
 ---
 
 ## 맵 고르기 (실내 × 실외)
@@ -82,6 +113,36 @@ node server/index.mjs            # http://127.0.0.1:17777
 | ![마당](docs/screenshots/20_yard.png) 꼬마빌딩 + 마당 | ![캠퍼스](docs/screenshots/21_campus.png) 연구소 + 캠퍼스 | ![한옥](docs/screenshots/22_hanok.png) 한옥 + 정원 |
 | ![스카이타워](docs/screenshots/23_skytower.png) 스카이타워 + 광장 | ![호텔](docs/screenshots/24_hotel.png) 호텔 + 항구 | ![온실](docs/screenshots/25_glasshouse.png) 온실 + 꽃밭 |
 | ![도서관](docs/screenshots/26_library.png) 도서관 + 설원 | ![게임 스튜디오](docs/screenshots/27_gamestudio.png) 게임 스튜디오 + 테마파크 | |
+
+---
+
+## 그래픽 · 시간대 · 보기 옵션
+
+맵 버튼(🗺️ · `M`)을 누르면 나오는 창의 탭에서 고른다. 모두 이 브라우저에만 저장된다.
+
+**🎨 그래픽** — 그래픽 세트 × 테마 × 필터를 따로 골라 조합한다.
+
+| | |
+|---|---|
+| ![도트 업무층](docs/screenshots/60_pixel_floor.png) **도트 세트** — 캐릭터 89종(4방향 걷기)과 바닥 · 벽 · 가구를 CC0 도트 에셋으로. 에셋이 없는 물건(모니터 · 서버랙 · 건물 …)도 같은 도트 크기 격자로 다시 찍는다 | ![도트 숙소](docs/screenshots/61_pixel_dorm.png) **도트 세트 · 지하숙소** — 침대 · 책장 · 화분 · 원탁 · 옷장 등은 에셋 그림, 바닥 마루 · 타일 · 벽돌 무늬 |
+| ![할로윈](docs/screenshots/62_theme_halloween.png) **테마 · 할로윈** — 마녀 · 호박 머리 · 뱀파이어, 박쥐 · 유령 · 호박 장식 | ![마법사](docs/screenshots/62_theme_wizard.png) **테마 · 마법사** — 뾰족 모자 · 별 무늬 로브 · 떠다니는 마법 빛 |
+
+- 그래픽 세트: 털실 인형(기본) · 도트 캐릭터
+- 테마: 기본 · 회사원 · 마법사 · 할로윈 · 크리스마스 · 우주 (옷차림 · 소품 · 하늘 · 화면 효과)
+- 필터: 도트 · 게임보이 · 일러스트 · 시네마 · 스케치 · 네온 (화면 전체 효과)
+- 에셋 출처는 [`public/assets/skins/CREDITS.md`](public/assets/skins/CREDITS.md) — 모두 CC0 (Ninja Adventure · OpenGameArt)
+
+**🌗 시간대** — 실제 시각을 따르거나(밤이 되면 어두워지고 가로등이 켜짐) 아침 · 낮 · 노을 · 밤으로 고정한다. 배경 하늘과 빛깔이 시간대마다 바뀐다.
+
+![시간대](docs/screenshots/63_daynight.png)
+
+| | |
+|---|---|
+| ![표시 · 알림](docs/screenshots/64_display_options.png) **⚙️ 표시 · 알림** — 이름표 · 말풍선 · 위임선 · 직급, 결정 필요 알림, **자동 포커스**(끄기 · 그 층 비추기 · 캐릭터 따라가기 · 최근 세션 계속 따라가기), 화면을 만진 뒤 쉬는 시간, 시간대 | ![그래픽 탭](docs/screenshots/65_graphics_tab.png) **🎨 그래픽** 탭 |
+| ![세션 보기](docs/screenshots/66_view_filter.png) **👁️ 세션 보기** — 세션이 많아 층이 늘어나면: 기간(1시간 · 오늘 · 7일 …) · 상태 · 자리 · 종류 · 서비스 · 프로젝트 · 최대 인원으로 거르거나 세션을 하나하나 골라 보이기 · 숨기기 | ![따라가기](docs/screenshots/67_follow.png) **🎯 따라가기** — 카메라가 캐릭터를 따라다니고(층을 옮기면 그 층으로) 왼쪽에 그 캐릭터의 상세가 뜬다. 자동 포커스로 대상이 바뀌면 상세도 같이 바뀐다 |
+
+- 타이틀 · 파비콘(언어별 제목, 결정 대기 수 뱃지, 이미지 올리기)은 **계정 옵션 › 🏷️ 타이틀 · 파비콘** 에서.
+- 여러 Claude 계정의 세션(세션 스위처로 연결한 계정 포함)이 활동이 없어도 모두 보인다.
 
 ---
 
@@ -178,7 +239,7 @@ AI OFFICE 안에서 칸반 보드를 보고 조작하고, **세션 ↔ 카드**�
   }
   ```
 - **외부 프로그램용 API (키 발급)** → [docs/API.md](docs/API.md)
-- **세션 통째로 내려받기 (세션 스위처 백업 형식)** → [docs/TRANSFER_API.md](docs/TRANSFER_API.md)
+- **세션 내려받기 · 원격 작업 동기화** — 세션을 다른 PC 로 내려받아 작업한 뒤 다시 올려 내 서버에 합친다(세션 스위처 백업 형식 · `sync` 키 · 큰 파일은 조각 업로드 · 미리보기 → 적용 → 되돌리기) → [docs/TRANSFER_API.md](docs/TRANSFER_API.md) · 서버에서 보는 HTML 문서 `/docs/sync-api.html`
 - **칸반 웹훅** → [docs/WEBHOOKS.md](docs/WEBHOOKS.md)
 
 ---

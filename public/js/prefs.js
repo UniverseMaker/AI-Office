@@ -2,7 +2,7 @@
 // 헤더 제목 · 배경(캔버스) 색 · 맵 표시. 로그인하면 계정에 저장(서버 /api/prefs), 아니면 이 브라우저에만 저장.
 (function () {
   const esc = AIO.esc, tr = (...a) => AIO.tr(...a);
-  const DEF = { theme: 'auto', palette: 'cream', dpalette: 'cocoa', accent: '#f0a03c', cardStyle: 'glass', cardAlpha: 92, radius: 16, shadow: 100, font: 'Gowun Dodum', titleFont: 'Jua', fontScale: 100, sideWidth: 300, density: 'normal', ticker: true, chips: true, motion: true, brandTitle: '', brandSub: '', sky: 'default', inkColor: '', ink2Color: '', linkColor: '', headColor: '', tagColor: '' };
+  const DEF = { themeV: 2, showVer: true, tabCount: true, favBadge: true, favMode: 'logo', favBg: '#f0a03c', favFg: '#ffffff', theme: 'light', palette: 'cream', dpalette: 'cocoa', accent: '#f0a03c', cardStyle: 'glass', cardAlpha: 92, radius: 16, shadow: 100, font: 'Gowun Dodum', titleFont: 'Jua', fontScale: 100, sideWidth: 300, density: 'normal', ticker: true, chips: true, motion: true, brandTitle: '', brandSub: '', sky: 'default', inkColor: '', ink2Color: '', linkColor: '', headColor: '', tagColor: '' };
   /** 글자색 옵션 (빈 값 = 팔레트 기본). [키, 이름, CSS 변수, 라이트 기본, 다크 기본] */
   const TEXT_COLORS = [['inkColor', '본문 글자', '--ink'], ['ink2Color', '보조 글자 (설명 · 시간)', '--ink2'], ['headColor', '제목 글자', '--head'], ['linkColor', '링크 (소속 · 바로가기)', '--link'], ['tagColor', '태그 · 배지 글자', '--tag-ink']];
   const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -27,7 +27,12 @@
   const TFONTS = ['Jua', 'Do Hyeon', 'Black Han Sans', 'Gowun Dodum', 'Noto Sans KR', 'Hi Melody', 'Gaegu', 'Dongle', 'Malgun Gothic'];
   const SKIES = { default: ['기본', null], dawn: ['새벽', ['#f7c59f', '#fde6c8']], ocean: ['바다', ['#9fd3f0', '#e6f6fb']], forest: ['숲', ['#b9dcb0', '#eef6e6']], mono: ['회색', ['#d5d7da', '#f1f2f3']], deep: ['어두운 남색', ['#1d2547', '#3a4170']] };
   let P = { ...DEF };
-  try { Object.assign(P, JSON.parse(localStorage.getItem('aio.prefs') || '{}')); } catch {}
+  let stored0 = {};
+  try { stored0 = JSON.parse(localStorage.getItem('aio.prefs') || '{}') || {}; } catch {}
+  Object.assign(P, stored0);
+  /** v6: 기본 모드를 라이트로 — 예전에 저장된 '시스템(auto)'은 한 번만 라이트로 옮긴다 (그 뒤에 고른 값은 그대로) */
+  const migrate = (o) => { if (o.themeV !== 2) { if (!o.theme || o.theme === 'auto') o.theme = 'light'; o.themeV = 2; } return o; };
+  if (Object.keys(stored0).length && stored0.themeV !== 2) { P.themeV = 0; migrate(P); try { localStorage.setItem('aio.prefs', JSON.stringify(P)); } catch {} }
 
   const root = document.documentElement;
   const dark = () => P.theme === 'dark' || (P.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -67,11 +72,7 @@
       b.classList.toggle('card-solid', P.cardStyle === 'solid');
       b.classList.toggle('card-outline', P.cardStyle === 'outline');
     }
-    const nf = document.querySelector('.brand .name-full'), ns = document.querySelector('.brand .name-short');
-    if (nf) { nf.dataset.orig = nf.dataset.orig || nf.textContent; nf.textContent = P.brandTitle || tr(nf.dataset.orig); }
-    if (ns) { ns.dataset.orig = ns.dataset.orig || ns.textContent; ns.textContent = P.brandTitle || tr(ns.dataset.orig); }
-    const sub = document.getElementById('hostLabel');
-    if (sub && P.brandSub) sub.dataset.custom = P.brandSub;
+    if (AIO.brand) AIO.brand.apply(true);              // 🏷️ 헤더 제목 · 부제 · 로고 · 탭 제목 · 파비콘 (brand.js)
     window.dispatchEvent(new Event('resize'));
   }
   let saveT = null;
@@ -82,12 +83,12 @@
   }
   /** 로그인하면 계정에 저장된 옵션을 불러온다 */
   async function pull() {
-    try { const r = await AIO.auth.api('/api/prefs'); if (!r.ok) return; const j = await r.json(); if (j.prefs) { P = { ...DEF, ...j.prefs }; try { localStorage.setItem('aio.prefs', JSON.stringify(P)); } catch {} apply(); } } catch {}
+    try { const r = await AIO.auth.api('/api/prefs'); if (!r.ok) return; const j = await r.json(); if (j.prefs) { const old = j.prefs.themeV !== 2; P = migrate({ ...j.prefs, ...(old ? { themeV: 0 } : {}) }); P = { ...DEF, ...P }; if (old) setTimeout(save, 0); try { localStorage.setItem('aio.prefs', JSON.stringify(P)); } catch {} apply(); } } catch {}
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', apply);
 
   // ---------------------------------------------------------------- 계정 옵션 창
-  const sw = (k, v, color, label) => `<button class="pf-sw ${P[k] === v ? 'on' : ''}" data-pk="${k}" data-pv="${esc(v)}" title="${esc(label || v)}" style="--c:${color}">${label ? `<span>${esc(label)}</span>` : ''}</button>`;
+  const sw = (k, v, color, label) => `<button class="pf-sw ${P[k] === v ? 'on' : ''}" data-pk="${k}" data-pv="${esc(v)}" title="${esc(tr(label || v))}" style="--c:${color}">${label ? `<span>${esc(tr(label))}</span>` : ''}</button>`;
   const seg = (k, opts) => `<div class="pf-seg">${opts.map(([v, l]) => `<button class="${P[k] === v ? 'on' : ''}" data-pk="${k}" data-pv="${v}">${tr(l)}</button>`).join('')}</div>`;
   const range = (k, min, max, step, unit) => `<div class="pf-range"><input type="range" min="${min}" max="${max}" step="${step}" value="${P[k]}" data-pr="${k}"><b>${P[k]}${unit}</b></div>`;
   const tog = (k, l) => `<label class="pf-tog"><input type="checkbox" data-pt="${k}" ${P[k] ? 'checked' : ''}><span>${tr(l)}</span></label>`;
@@ -118,11 +119,38 @@
     h += row('사이드바 폭', range('sideWidth', 240, 460, 10, 'px'));
     h += row('간격', seg('density', [['normal', '보통'], ['compact', '촘촘하게']]));
     h += `<div class="pf-togs">${tog('chips', '상단 상태 칩')}${tog('ticker', '아래 소식 티커')}${tog('motion', '애니메이션')}</div>`;
-    h += row('헤더 제목', `<input class="mg-in wide" data-pi="brandTitle" value="${esc(P.brandTitle)}" placeholder="${tr('AI 인공지능 연구원')}">`);
+    // 🏷️ 타이틀 · 파비콘
+    {
+      const B = AIO.brand ? AIO.brand.DEF : { title: '', short: '', logo: '🧶' };
+      const pair = (k, ph) => `<div class="pf-pair"><label><b class="pf-lg">한</b><input class="mg-in" data-pi="${k}" value="${esc(P[k] || '')}" placeholder="${esc(ph)}"></label><label><b class="pf-lg">EN</b><input class="mg-in" data-pi="${k}En" value="${esc(P[k + 'En'] || '')}" placeholder="${esc(AIO.lang === 'en' ? tr(ph) : AIO.i18n && AIO.i18n.dict[ph] || tr('비우면 번역'))}"></label></div>`;
+      const EMO = ['🧶', '🤖', '🏢', '🧪', '🚀', '🐱', '🦊', '🌱', '💡', '⭐', '🎯', '🧠'];
+      h += `<h3>🏷️ ${tr('타이틀 · 파비콘')}</h3>`;
+      h += row('헤더 제목', pair('brandTitle', B.title));
+      h += row('짧은 제목 (좁은 화면)', pair('brandShort', B.short));
+      h += row('부제', pair('brandSub', tr('서버 이름 · AI 세션 캠퍼스')));
+      h += row('로고', `<div class="pf-sws">${EMO.map((e) => `<button class="pf-emo ${!P.brandLogoImg && (P.brandLogo || '🧶') === e ? 'on' : ''}" data-pk="brandLogo" data-pv="${e}">${e}</button>`).join('')}<input class="mg-in pf-emoin" data-pi="brandLogo" value="${esc(P.brandLogo || '')}" placeholder="${tr('직접')}" maxlength="8"></div>`
+        + `<div class="pf-file"><label class="btn ghost sm">🖼️ ${tr('로고 그림 올리기')}<input type="file" accept="image/*" data-pfile="brandLogoImg" hidden></label>${P.brandLogoImg ? `<img src="${esc(P.brandLogoImg)}" alt=""><button class="btn ghost sm" data-pk="brandLogoImg" data-pv="">${tr('그림 빼기')}</button>` : ''}</div>`);
+      h += `<div class="pf-togs">${tog('showVer', '버전 뱃지 (v6)')}</div>`;
+      h += row('브라우저 탭 제목', pair('tabTitle', tr('비우면 헤더 제목')));
+      h += `<div class="pf-togs">${tog('tabCount', '탭 제목 앞에 결정 필요 수 (2)')}${tog('favBadge', '파비콘에 결정 필요 배지')}</div>`;
+      h += row('파비콘', seg('favMode', [['logo', '로고와 같게'], ['emoji', '이모지'], ['text', '글자'], ['image', '그림']]));
+      if (P.favMode === 'emoji') h += row('파비콘 이모지', `<div class="pf-sws">${EMO.map((e) => `<button class="pf-emo ${(P.favEmoji || '🧶') === e ? 'on' : ''}" data-pk="favEmoji" data-pv="${e}">${e}</button>`).join('')}<input class="mg-in pf-emoin" data-pi="favEmoji" value="${esc(P.favEmoji || '')}" placeholder="${tr('직접')}" maxlength="8"></div>`);
+      if (P.favMode === 'text') h += row('파비콘 글자', `<input class="mg-in pf-emoin" data-pi="favText" value="${esc(P.favText || '')}" placeholder="AI" maxlength="3">`);
+      if (P.favMode === 'text' || P.favMode === 'emoji' || (P.favMode || 'logo') === 'logo') h += row('파비콘 색', `<div class="pf-sws">${P.favMode === 'text' ? '' : tog('favBgOn', '배경 칠하기')}<label>${tr('배경')} <input type="color" value="${esc(P.favBg || '#f0a03c')}" data-pc="favBg"></label>${P.favMode === 'text' ? `<label>${tr('글자')} <input type="color" value="${esc(P.favFg || '#ffffff')}" data-pc="favFg"></label>` : ''}</div>`);
+      if (P.favMode === 'image') h += row('파비콘 그림', `<div class="pf-file"><label class="btn ghost sm">🖼️ ${tr('그림 올리기')}<input type="file" accept="image/*" data-pfile="favImg" hidden></label>${P.favImg ? `<button class="btn ghost sm" data-pk="favImg" data-pv="">${tr('그림 빼기')}</button>` : `<small class="muted">${tr('정사각형 그림이 좋아요 · 64px 로 줄여 저장')}</small>`}</div>`);
+      const T0 = AIO.brand ? AIO.brand.titles(P) : { tab: '' };
+      h += `<div class="pf-tabpv"><img id="pfFav" src="${esc(AIO.brand ? AIO.brand.favURL() : '')}" alt=""><span>${esc(T0.tab)}</span><small>${tr('브라우저 탭 미리보기')}</small></div>`;
+    }
     h += `</section><section><h3>🗺️ ${tr('맵 표시')}</h3><div class="pf-togs">`;
     h += [['labels', '🏷️ 이름표'], ['bubbles', '💬 말풍선'], ['lines', '🧵 위임선(털실)'], ['rank', '🎖️ 직급']].map(([k, l]) => `<label class="pf-tog"><input type="checkbox" data-wo="${k}" ${o[k] !== false ? 'checked' : ''}><span>${tr(l)}</span></label>`).join('');
     h += `</div>`;
     for (const [k, l] of [['labelScale', '🏷️ 이름표 크기'], ['signScale', '🪧 방·팀 표지판 크기'], ['bubbleScale', '💬 말풍선 크기']]) h += row(l, `<div class="pf-range"><input type="range" min="60" max="200" step="5" value="${Math.round((+o[k] || 1) * 100)}" data-wscale="${k}"><b>${Math.round((+o[k] || 1) * 100)}%</b></div>`);
+    { const hc = W ? W.heatCfg() : { on: true, t: [1, 5, 10], speed: 1, fx: {} };
+      h += `<div class="pf-sub">🔥 ${tr('층 강조 — 세션 수에 따라 층 버튼 · 빌딩 외벽을 강조')}</div>`;
+      h += row('층 강조', `<label class="pf-tog"><input type="checkbox" data-wheat="on" ${hc.on ? 'checked' : ''}><span>${tr('켜기')}</span></label>`);
+      h += row('기준 (세션 수)', `<div class="pf-heatt">${[['낮음', 0], ['보통', 1], ['높음', 2]].map(([l, i]) => `<label>${tr(l)} <input class="mg-in" type="number" min="1" max="99" data-wheatt="${i}" value="${hc.t[i]}">${tr('명 ↑')}</label>`).join('')}</div>`);
+      h += row('외벽 효과', `<div class="pf-togs">${[['tint', '🔥 단계별 불빛'], ['blink', '💡 깜빡임 (높음)'], ['wave', '🌊 흐르는 불빛 (보통 ↑)'], ['neon', '✨ 네온 띠'], ['count', '👥 인원 숫자'], ['rainbow', '🌈 무지개 (보통 ↑)']].map(([k, l]) => `<label class="pf-tog"><input type="checkbox" data-wfx="${k}" ${hc.fx[k] ? 'checked' : ''}><span>${tr(l)}</span></label>`).join('')}</div>`);
+      h += row('효과 속도', `<div class="pf-range"><input type="range" min="30" max="300" step="10" value="${Math.round(hc.speed * 100)}" data-wheatspeed="1"><b>${Math.round(hc.speed * 100)}%</b></div>`); }
     h += row('이름표에 표시', `<div class="pf-seg">${[['persona', '🧑 캐릭터 이름 · 국기'], ['title', '📄 세션 제목']].map(([v, l]) => `<button class="${(o.tagName || 'persona') === v ? 'on' : ''}" data-wtag="${v}">${tr(l)}</button>`).join('')}</div>`);
     h += `${row('시간대', `<div class="pf-seg">${[['auto', '실제'], ['day', '낮'], ['dusk', '노을'], ['night', '밤']].map(([v, l]) => `<button class="${(o.sky || 'auto') === v ? 'on' : ''}" data-wsky="${v}">${tr(l)}</button>`).join('')}</div>`)}`;
     h += `<div class="pf-foot"><button class="btn ghost sm" data-preset="reset">↺ ${tr('기본값으로')}</button><button class="btn ghost sm" data-preset="night">🌙 ${tr('야간 작업용')}</button><button class="btn ghost sm" data-preset="big">🔍 ${tr('큰 글씨')}</button><button class="btn ghost sm" data-preset="clean">✨ ${tr('깔끔하게')}</button></div>`;
@@ -160,7 +188,22 @@
     else if (t.dataset.pc && ev.type === 'change') set(t.dataset.pc, t.value);
     else if (t.dataset.ps) set(t.dataset.ps, t.value);
     else if (t.dataset.pt && ev.type === 'change') set(t.dataset.pt, t.checked, false);
-    else if (t.dataset.pi && ev.type === 'change') set(t.dataset.pi, t.value.trim(), false);
+    else if (t.dataset.pi && ev.type === 'change') set(t.dataset.pi, t.value.trim(), /^(brandLogo|favEmoji|favText)$/.test(t.dataset.pi));
+    else if (t.dataset.pfile && ev.type === 'change' && t.files && t.files[0]) {     // 그림 → 64px PNG 로 줄여 저장 (계정 옵션 크기 제한)
+      const k = t.dataset.pfile, f = t.files[0];
+      if (!/^image\//.test(f.type) || f.size > 5e6) return;
+      const rd = new FileReader();
+      rd.onload = () => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const s = Math.min(im.width, im.height); g.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 64, 64); set(k, c.toDataURL('image/png')); }; im.src = rd.result; };
+      rd.readAsDataURL(f);
+    }
+    else if (t.dataset.wheat || t.dataset.wheatt || t.dataset.wfx || t.dataset.wheatspeed) {
+      const W = AIO.ui.world(), hc = W.heatCfg();
+      if (t.dataset.wheat) hc.on = t.checked;
+      if (t.dataset.wheatt && ev.type === 'change') { hc.t[+t.dataset.wheatt] = Math.max(1, Math.min(99, +t.value || 1)); hc.t.sort((a, b) => a - b); }
+      if (t.dataset.wfx) hc.fx[t.dataset.wfx] = t.checked;
+      if (t.dataset.wheatspeed) { hc.speed = +t.value / 100; t.parentElement.querySelector('b').textContent = t.value + '%'; }
+      W.opts.heat = hc; try { localStorage.setItem('aio.opts', JSON.stringify(W.opts)); } catch {}
+    }
     else if (t.dataset.wscale) { const W = AIO.ui.world(); W.opts[t.dataset.wscale] = +t.value / 100; t.parentElement.querySelector('b').textContent = t.value + '%'; try { localStorage.setItem('aio.opts', JSON.stringify(W.opts)); } catch {} }
     else if (t.dataset.wo && ev.type === 'change') { const W = AIO.ui.world(); W.opts[t.dataset.wo] = t.checked; try { localStorage.setItem('aio.opts', JSON.stringify(W.opts)); } catch {} }
   }

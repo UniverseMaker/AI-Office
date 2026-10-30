@@ -61,3 +61,13 @@
   .mm-tabs > button[data-mm-tab] { flex: none; }
 }
 .mm-card > p { margin: 0; font-size: 13px; line-height: 1.6; }
+
+/* 자동 출퇴근 */
+.mm-auto { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; background: var(--card); border-radius: 10px; padding: 7px 9px; font-size: 12px; border: 1.5px dashed var(--line); }
+.mm-auto.on { border-style: solid; border-color: color-mix(in srgb, #2fb27f 55%, transparent); }
+.mm-auto span, .mm-auto small { color: var(--ink2); }
+.mm-auto .err { color: #c43d32; }
+.mm-auto .btn { margin-left: auto; }
+.mm-hist { display: flex; flex-direction: column; gap: 2px; font-size: 12px; max-height: 160px; overflow-y: auto; }
+.mm-hist small { color: var(--ink2); }
+.mm-row input[type=number] { width: 64px; }

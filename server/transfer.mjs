@@ -10,6 +10,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 
 const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -38,6 +39,13 @@ function scanRecords() {
   };
   for (const r of roots) walk(r, 0);
   return out;
+}
+
+/** 동기화(올리기)용: 등록 파일이 있는 세션인지 · 새 등록 파일을 둘 폴더(가장 최근 기록이 있는 계정 폴더) */
+export function recordsIndex() {
+  const recs = scanRecords();
+  let newest = null; for (const r of recs.values()) if (!newest || r.mtime > newest.mtime) newest = r;
+  return { has: (sid) => recs.has(sid), stageDir: () => (newest ? path.dirname(newest.path) : null) };
 }
 
 /** 대화 첫 사용자 문장 (제목이 없을 때) */
@@ -117,11 +125,16 @@ export async function streamBundle(res, ids, liveTitles) {
   const ts = new Date(), stamp = ts.toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
   res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="claude_sessions_${stamp}.zip"`, 'Cache-Control': 'no-store' });
   const z = new ZipStream(res);
-  const man = { manifest_version: 2, created_at: ts.toISOString().slice(0, 19), source_computer: os.hostname(), source: 'ai-office', code: [], cowork: [], warnings: [] };
+  // sync.base: 내려받을 때 각 대화의 지문 — 다시 올릴 때 '그 사이 이 PC 쪽도 바뀌었는지' 판단에 쓴다 (세션 스위처는 모르는 필드라 무시)
+  const man = { manifest_version: 2, created_at: ts.toISOString().slice(0, 19), source_computer: os.hostname(), source: 'ai-office', code: [], cowork: [], warnings: [], sync: { server: os.hostname(), exported_at: ts.toISOString(), base: {} } };
   for (const c of pick) {
     const dir = path.join(PROJECTS, c.transcript_folder);
     const entry = { cli_session_id: c.cli_session_id, title: c.title, transcript: false, record: false, size: c.size, sidecar_files: 0, transcript_folder: c.transcript_folder };
-    try { const fp = path.join(dir, c.cli_session_id + '.jsonl'); z.addFile(`transcripts/${c.cli_session_id}.jsonl`, await fsp.readFile(fp), fs.statSync(fp).mtime); entry.transcript = true; }
+    try {
+      const fp = path.join(dir, c.cli_session_id + '.jsonl'), buf = await fsp.readFile(fp);
+      z.addFile(`transcripts/${c.cli_session_id}.jsonl`, buf, fs.statSync(fp).mtime); entry.transcript = true;
+      man.sync.base[c.cli_session_id] = { sha256: crypto.createHash('sha256').update(buf).digest('hex'), size: buf.length };
+    }
     catch (e) { man.warnings.push(`대화 파일 복사 실패: ${c.title} (${e.message})`); }
     const side = path.join(dir, c.cli_session_id);
     if (fs.existsSync(side)) {

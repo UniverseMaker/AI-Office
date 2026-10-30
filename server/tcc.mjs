@@ -85,7 +85,7 @@ export class TccSync {
       seen.add(s.id);
       const link = this.getLink(s.id);
       if (!link || !link.key) {
-        if (cfg.autoCreate && cfg.project && s.kind !== 'app' && !this.created.has(s.id) && this.prev.has(s.id)) { this.created.add(s.id); this.autoCreate(s, cfg); }
+        if (cfg.autoCreate && cfg.project && s.kind !== 'app' && !s.dormant && !this.created.has(s.id) && this.prev.has(s.id)) { this.created.add(s.id); this.autoCreate(s, cfg); }
         this.prev.set(s.id, { col: this.columnOf(s) });
         continue;
       }

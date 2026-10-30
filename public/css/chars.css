@@ -1,0 +1,46 @@
+/* 직접 만든 캐릭터 — 관리 센터 › 🧑 캐릭터 */
+.ch-host { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ch { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(340px, 460px); gap: 12px; min-height: 0; flex: 1; }
+.ch-left { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.ch-list { display: flex; flex-direction: column; gap: 7px; overflow-y: auto; max-height: calc(100vh - 230px); padding-right: 2px; scrollbar-width: thin; }
+.ch-card { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; background: var(--bg2); border: 2px solid transparent; border-radius: 14px; padding: 8px 10px; }
+.ch-card.on { border-color: var(--accent); }
+.ch-card.off { opacity: .55; }
+.ch-av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #fff8ee, #efe2cf); box-shadow: inset 0 0 0 4px var(--c); }
+.ch-av span { font-family: var(--cute); color: var(--c); font-size: 17px; }
+.ch-tx { min-width: 0; font-size: 13px; }
+.ch-tx small { color: var(--ink2); font-size: 11px; }
+.ch-sub { color: var(--ink2); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-sub em { font-style: normal; color: #c43d32; }
+.ch-btns { display: flex; gap: 4px; }
+.ch-right { min-height: 0; overflow-y: auto; max-height: calc(100vh - 190px); scrollbar-width: thin; }
+.ch-pad { padding: 40px 10px; text-align: center; }
+.ch-ed { background: var(--bg2); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.ch-edh { display: flex; align-items: center; justify-content: space-between; }
+.ch-edh h3 { margin: 0; font-family: var(--cute); font-weight: normal; font-size: 17px; color: var(--head, var(--ink)); }
+.ch-ed section { background: var(--card); border-radius: 12px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; }
+.ch-ed h4 { margin: 0 0 3px; font-size: 13px; color: var(--ink2); }
+.ch-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: center; font-size: 12.5px; }
+.ch-row > span { color: var(--ink2); }
+.ch-row > div { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.ch-row .mg-in { min-width: 0; flex: 1; }
+.ch-row input[type=number] { max-width: 90px; }
+.ch-sws { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.ch-sw { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; background: var(--c); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+.ch-pat { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+.ch-step { display: grid; grid-template-columns: 1fr 64px auto 1fr auto; gap: 5px; align-items: center; font-size: 12px; }
+.ch-foot { display: flex; align-items: center; gap: 8px; }
+.ch-foot .btn:not(.ghost) { padding: 8px 22px; }
+@media (max-width: 860px) {
+  .ch { grid-template-columns: 1fr; }
+  .ch-list, .ch-right { max-height: none; }
+  .ch-step { grid-template-columns: 1fr 56px auto; }
+  .ch-step [data-chp=label] { grid-column: 1 / 3; }
+}
+.ch-see { font-size: 10.5px; background: var(--card); border-radius: 99px; padding: 1px 7px; color: var(--ink2); margin-left: 4px; }
+.ch-ed .mg-chk select { margin: 0 4px; }
+.ch-jail { font-size: 11px; background: #2b3a67; color: #fff; border-radius: 99px; padding: 2px 8px; align-self: center; white-space: nowrap; }
+.ch-sendto { gap: 6px; }
+.ch-g { font-size: 12px; font-weight: bold; }
+.ch-g.f { color: #e2667f; }
+.ch-g.m { color: #4e7cf6; }

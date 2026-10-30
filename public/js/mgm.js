@@ -76,6 +76,8 @@
       x += `<div class="mm-clock"><div><small>${tr('출근')}</small><b>${hm(rec && rec.checkIn)}</b></div><div><small>${tr('퇴근')}</small><b>${hm(rec && rec.checkOut)}</b></div><div><small>${tr('근무')}</small><b>${rec && rec.workMinutes ? `${Math.floor(rec.workMinutes / 60)}${tr('시간')} ${rec.workMinutes % 60}${tr('분')}` : '—'}</b></div></div>`;
       x += `<div class="mm-row">${rec && rec.type ? chip(rec.type, rec.type === '정상' ? '#2fb27f' : '#e9a23b') : ''}<span class="mm-sp"></span><button class="btn sm" data-mm="punch" data-v="in" ${rec && rec.checkIn ? 'disabled' : ''}>☀️ ${tr('출근')}</button><button class="btn ghost sm" data-mm="punch" data-v="out" ${!(rec && rec.checkIn) ? 'disabled' : ''}>🌙 ${tr('퇴근')}</button></div>`;
     }
+    const au = G.cfg && G.cfg.auto;
+    if (au) x += `<div class="mm-auto ${au.on ? 'on' : ''}"><b>🤖 ${tr('AI 세션 활동으로 자동 출퇴근')}</b> ${au.on ? `<span>${tr('켜짐')} · ${au.signal === 'any' ? tr('AI 작업 포함') : tr('내 요청 기준')} · ${tr('{0}분 조용하면 퇴근', au.idleMin)}</span>` : `<span>${tr('꺼짐')}</span>`}${au.today && au.today.lastAct ? `<small>${tr('마지막 AI 활동')} ${hm(new Date(au.today.lastAct).toISOString())}</small>` : ''}${au.today && au.today.error ? `<small class="err">⚠️ ${esc(au.today.error)}</small>` : ''}<button class="btn ghost sm" data-mm-tab="set">${tr('설정')}</button></div>`;
     x += `<p class="mm-who">👤 ${esc(u.name || u.username || '')} ${u.affiliation ? `· ${esc(u.affiliation)}` : ''} ${u.permissions && u.permissions.admin ? chip('관리자', '#8f4fe0') : ''} ${me.token ? chip(me.token.scope === 'write' ? '읽기+쓰기 토큰' : '읽기 전용 토큰', me.token.scope === 'write' ? '#4e7cf6' : '#8a7f72') : ''}</p></section>`;
     x += `<section class="mm-card"><h3>📥 ${tr('내 결재 차례')} <span class="mm-n">${G.inbox.length}</span></h3>${G.inbox.length ? G.inbox.slice(0, 6).map(apvRow).join('') : `<p class="muted">${tr('기다리는 결재가 없어요 🎉')}</p>`}${G.inbox.length ? `<button class="btn ghost sm" data-mm-tab="apv">${tr('결재함 열기')} →</button>` : ''}</section>`;
     x += `<section class="mm-card"><h3>📅 ${tr('다가오는 일정 (7일)')}</h3>${G.events.length ? G.events.slice(0, 8).map(evRow).join('') : `<p class="muted">${tr('일정이 없어요')}</p>`}</section>`;
@@ -164,6 +166,14 @@
     x += `<div class="mm-row"><input class="mg-in wide" type="password" autocomplete="off" data-mms="token" placeholder="${c.hasToken ? tr('새 토큰으로 바꾸기 (mgm_…)') : 'mgm_…'}"><button class="btn sm" data-mm="token-save">${tr('저장')}</button>${c.hasToken ? `<button class="btn ghost sm danger" data-mm="token-del">${tr('토큰 지우기')}</button>` : ''}</div>`;
     if (c.external) x += `<p class="mg-err">${tr('지금은 외부 주소로 접속 중이라 토큰을 넣을 수 없어요 (이 PC 에서 127.0.0.1:17777 로 접속해 넣으세요)')}</p>`;
     x += `<div class="mm-sub">${tr('API 주소 (바꾸면 토큰도 다시 넣어야 해요)')}</div><input class="mg-in wide" data-mms="base" value="${esc(cfg.base || '')}">`;
+    const A = c.auto || {};
+    x += `<div class="mm-sub">🤖 ${tr('AI 세션 활동으로 자동 출퇴근')}</div><label class="mg-chk"><input type="checkbox" data-mma="on" ${A.on ? 'checked' : ''}> ${tr('켜기 — 그날 처음 AI 에게 일을 시키면 출근, 한동안 조용하면 퇴근')}</label>`
+      + `<div class="mm-row"><label>${tr('출근 신호')} <select data-mma="signal"><option value="prompt" ${A.signal !== 'any' ? 'selected' : ''}>${tr('내가 요청을 보낼 때')}</option><option value="any" ${A.signal === 'any' ? 'selected' : ''}>${tr('AI 가 일할 때도 (자동 작업 포함)')}</option></select></label>`
+      + `<label>${tr('퇴근: 조용한 지')} <input type="number" min="5" max="240" data-mma="idleMin" value="${A.idleMin || 30}">${tr('분')}</label><label>${tr('출근 가능')} <input type="number" min="0" max="23" data-mma="startHour" value="${A.startHour ?? 5}">${tr('시부터')}</label>`
+      + `<label class="mg-chk"><input type="checkbox" data-mma="weekdaysOnly" ${A.weekdaysOnly !== false ? 'checked' : ''}> ${tr('주말 제외')}</label><button class="btn sm" data-mm="auto-save">${tr('자동 출퇴근 저장')}</button></div>`
+      + `<p class="muted">${tr('행정 API 는 출근 시각은 처음 한 번만, 퇴근 시각은 마지막 값으로 기록해요. 그래서 다시 일하면 다음 퇴근 때 퇴근 시각이 늦춰져요. 출퇴근 말고는 아무것도 쓰지 않아요.')}</p>`
+      + (A.today ? `<p>${tr('오늘')}: ${tr('출근')} <b>${A.today.inAt ? hm(new Date(A.today.inAt).toISOString()) : '—'}</b> · ${tr('퇴근')} <b>${A.today.outAt ? hm(new Date(A.today.outAt).toISOString()) : '—'}</b> · ${tr('마지막 AI 활동')} <b>${A.today.lastAct ? hm(new Date(A.today.lastAct).toISOString()) : '—'}</b></p>` : '')
+      + ((A.history || []).length ? `<div class="mm-hist">${A.history.map((h) => `<div>${h.ok ? '✅' : '⚠️'} ${when(new Date(h.at).toISOString())} · ${esc(tr(h.what))} <small>${esc(h.detail || '')}</small></div>`).join('')}</div>` : '');
     x += `<label class="mg-chk"><input type="checkbox" data-mms="externalWrite" ${cfg.externalWrite ? 'checked' : ''}> ${tr('외부 주소(터널)로 접속했을 때도 처리(출퇴근 · 결재 · 등록) 허용')}</label><button class="btn ghost sm" data-mm="cfg-save">${tr('설정 저장')}</button></section>`;
     x += `<section class="mm-card"><h3>🛡️ ${tr('보안 규칙')}</h3><ul class="mm-ul">${[
       '관리자 로그인만 쓸 수 있어요 (등급 계정 · 비로그인 · API 키로는 불가)',
@@ -249,6 +259,11 @@
         if (k === 'token-save' && !/^mgm_[A-Za-z0-9]{16,128}$/.test(tok)) return toast(tr('mgm_ 로 시작하는 토큰을 넣어 주세요'));
         if (k === 'token-del' && !confirm(tr('저장된 토큰을 지울까요?'))) return;
         G.cfg = await call('/api/mgm/config', 'POST', { token: tok, cfg: { base: val('[data-mms=base]').trim() } }); toast(tok ? tr('🔐 금고에 저장했어요') : tr('토큰을 지웠어요')); return loadTab();
+      }
+      if (k === 'auto-save') {
+        const q = (n) => G.host.querySelector(`[data-mma=${n}]`);
+        G.cfg = await call('/api/mgm/config', 'POST', { cfg: { base: val('[data-mms=base]').trim(), auto: { on: q('on').checked, signal: q('signal').value, idleMin: +q('idleMin').value, startHour: +q('startHour').value, weekdaysOnly: q('weekdaysOnly').checked } } });
+        toast(G.cfg.auto && G.cfg.auto.on ? tr('🤖 자동 출퇴근을 켰어요') : tr('자동 출퇴근을 껐어요')); return render();
       }
       if (k === 'cfg-save') { const el = G.host.querySelector('[data-mms=externalWrite]'); G.cfg = await call('/api/mgm/config', 'POST', { cfg: { base: val('[data-mms=base]').trim(), externalWrite: !!(el && el.checked) } }); toast(tr('저장했어요')); return render(); }
     } catch (e) { toast('⚠️ ' + tr(e.message)); if (e.status === 409) loadTab(); }

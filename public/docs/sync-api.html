@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI OFFICE 세션 동기화 API</title>
+<meta name="description" content="AI OFFICE 서버의 Claude Code 대화를 다른 컴퓨터로 내려받아 이어서 작업하고, 다시 올려 서버에 합치는 API 문서">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
+<style>
+  :root {
+    --bg: #fbf7f0; --card: #fffdf9; --ink: #3b332b; --ink2: #7d7166; --line: #ebe1d3; --accent: #e08a2e; --accent-bg: #fff1dd;
+    --code-bg: #2b2622; --code-ink: #f6efe4; --code-dim: #b6a996; --chip: #f3ebdf;
+    --get: #2f9e5f; --post: #4e7cf6; --put: #a67be0; --del: #e5534b;
+    --ok: #2f9e5f; --warn: #c47f22; --bad: #e5534b;
+    --mono: ui-monospace, 'Cascadia Code', Consolas, 'D2Coding', monospace;
+    --sans: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1d1a17; --card: #26221e; --ink: #efe6da; --ink2: #b3a796; --line: #3a332c; --accent: #f0a03c; --accent-bg: #3a2d1c;
+      --code-bg: #141210; --code-ink: #f0e8dc; --code-dim: #9d917f; --chip: #332c25;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1d1a17; --card: #26221e; --ink: #efe6da; --ink2: #b3a796; --line: #3a332c; --accent: #f0a03c; --accent-bg: #3a2d1c;
+    --code-bg: #141210; --code-ink: #f0e8dc; --code-dim: #9d917f; --chip: #332c25;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.7 var(--sans); }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  .wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 13.5px; }
+  nav.toc b { display: block; font-size: 12px; color: var(--ink2); letter-spacing: .04em; margin: 14px 0 4px; }
+  nav.toc a { display: block; color: var(--ink); padding: 3px 10px; border-radius: 8px; }
+  nav.toc a:hover { background: var(--chip); text-decoration: none; }
+  header.hero { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 26px 28px; margin-bottom: 22px; }
+  header.hero h1 { margin: 0 0 6px; font-size: 27px; line-height: 1.3; }
+  header.hero p { margin: 6px 0; color: var(--ink2); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .tag { background: var(--chip); border-radius: 99px; padding: 2px 11px; font-size: 12.5px; color: var(--ink2); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 6px 28px 22px; margin-bottom: 18px; }
+  h2 { font-size: 21px; margin: 22px 0 10px; padding-top: 4px; }
+  h3 { font-size: 16.5px; margin: 24px 0 8px; }
+  h3 code { font-size: 15px; }
+  p, li { max-width: 78ch; }
+  code { font-family: var(--mono); font-size: .92em; background: var(--chip); padding: 1px 6px; border-radius: 6px; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 14px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); margin: 10px 0 14px; }
+  pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+  pre .c { color: var(--code-dim); }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
+  .tbl { overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--ink2); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+  td code { white-space: nowrap; }
+  .m { display: inline-block; min-width: 54px; text-align: center; font: 700 11.5px/1.9 var(--mono); border-radius: 7px; color: #fff; }
+  .GET { background: var(--get); } .POST { background: var(--post); } .PUT { background: var(--put); } .DELETE { background: var(--del); }
+  .scope { font: 12px var(--mono); padding: 1px 8px; border-radius: 99px; background: var(--accent-bg); color: var(--accent); }
+  .ok { color: var(--ok); font-weight: 700; } .no { color: var(--bad); font-weight: 700; }
+  .flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 14px 0 6px; }
+  .step { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 12px; font-size: 13.5px; }
+  .step b { display: block; font-size: 22px; margin-bottom: 2px; }
+  .step small { color: var(--ink2); display: block; margin-top: 4px; font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+  .note { border-left: 4px solid var(--accent); background: var(--accent-bg); padding: 10px 14px; border-radius: 0 12px 12px 0; margin: 12px 0; font-size: 14px; }
+  .note.warn { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  footer { color: var(--ink2); font-size: 13px; text-align: center; margin-top: 30px; }
+  @media (max-width: 860px) {
+    .wrap { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 60px; }
+    h3 code { word-break: break-all; }
+    nav.toc { position: static; max-height: none; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 6px 12px 12px; }
+    section, header.hero { padding-left: 18px; padding-right: 18px; }
+    .flow { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <b>시작</b>
+    <a href="#overview">한눈에 보기</a>
+    <a href="#auth">인증 · 권한</a>
+    <a href="#endpoints">엔드포인트 목록</a>
+    <b>내려받기</b>
+    <a href="#sessions">GET /sessions</a>
+    <a href="#bundle">GET /bundle</a>
+    <a href="#status">GET /status</a>
+    <b>올리기 · 동기화</b>
+    <a href="#upload-format">올리는 zip 형식</a>
+    <a href="#sync">POST /sync (작은 파일)</a>
+    <a href="#chunks">조각 업로드 (큰 파일)</a>
+    <a href="#preview">미리 보기</a>
+    <a href="#apply">반영</a>
+    <a href="#undo">되돌리기</a>
+    <b>참고</b>
+    <a href="#rules">합치는 규칙</a>
+    <a href="#workflow">권장 작업 순서</a>
+    <a href="#examples">예시 (curl · Python)</a>
+    <a href="#errors">오류 코드</a>
+    <a href="#security">보안</a>
+  </nav>
+
+  <main>
+    <header class="hero" id="overview">
+      <h1>🔄 AI OFFICE 세션 동기화 API</h1>
+      <p>서버 PC 의 <b>Claude Code 대화를 다른 컴퓨터로 내려받아 이어서 작업하고, 다시 올려서 서버에 합치는</b> API 입니다.</p>
+      <p>형식은 <a href="https://github.com/UniverseMaker/Claude-Desktop-Application-Cowork-and-Code-Session-Transfer">세션 스위처</a>의 백업 zip 그대로라서, 내려받은 파일은 스위처의 「백업 / 복원 › 가져오기」에 바로 넣을 수 있고, 스위처(또는 같은 형식을 만드는 오프라인 도구)가 만든 백업을 그대로 올리면 됩니다.</p>
+      <div class="tags"><span class="tag">버전 v1</span><span class="tag">기본 경로 /api/transfer/v1</span><span class="tag">JSON + zip</span><span class="tag">줄 단위 병합 · 되돌리기</span></div>
+      <div class="flow">
+        <div class="step"><b>⬇️</b>내려받기<small>GET /bundle?ids=…</small></div>
+        <div class="step"><b>💻</b>원격에서 복원 · 이어서 작업<small>오프라인 소프트웨어</small></div>
+        <div class="step"><b>⬆️</b>같은 형식 zip 올리기<small>POST /sync · /uploads</small></div>
+        <div class="step"><b>🔍</b>미리 보기로 확인<small>…/preview</small></div>
+        <div class="step"><b>✅</b>반영 (필요하면 되돌리기)<small>…/apply · …/undo</small></div>
+      </div>
+      <p style="margin-top:12px">주소 예: <code>http://127.0.0.1:17777/api/transfer/v1</code> (서버 PC 에서) · 외부에서는 서버 공개 주소. 이 문서의 JSON 판은 <code>GET /api/transfer/v1</code> (인증 불필요).</p>
+    </header>
+
+    <section id="auth">
+      <h2>🔑 인증 · 권한</h2>
+      <p>관리 센터 › 🔌 연동 · 설정 › <b>API 키</b> 에서 발급합니다. 키 원문은 발급할 때 한 번만 보입니다.</p>
+<pre><code>Authorization: Bearer aio_xxxxxxxxxxxxxxxx
+<span class="c"># 또는</span>
+X-API-Key: aio_xxxxxxxxxxxxxxxx</code></pre>
+      <div class="tbl"><table>
+        <tr><th>scope</th><th>내려받기 (GET)</th><th>올리기 · 반영 · 되돌리기</th><th>일반 API /api/v1</th></tr>
+        <tr><td><span class="scope">transfer</span></td><td class="ok">✓</td><td class="no">403</td><td class="no">✗</td></tr>
+        <tr><td><span class="scope">sync</span></td><td class="ok">✓</td><td class="ok">✓</td><td class="no">✗</td></tr>
+        <tr><td><span class="scope">full</span></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+        <tr><td>관리자 로그인 토큰</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+      </table></div>
+      <div class="note">원격 컴퓨터마다 <code>sync</code> 키를 따로 발급하세요. 업로드 기록에 어느 키로 올렸는지 남고, 그 컴퓨터만 골라 폐기할 수 있습니다.</div>
+    </section>
+
+    <section id="endpoints">
+      <h2>📋 엔드포인트 목록</h2>
+      <p>경로는 모두 <code>/api/transfer/v1</code> 아래입니다.</p>
+      <div class="tbl"><table>
+        <tr><th>메서드</th><th>경로</th><th>권한</th><th>설명</th></tr>
+        <tr><td><span class="m GET">GET</span></td><td><code>/sessions</code></td><td><span class="scope">transfer</span></td><td>서버 PC 의 Claude Code 대화 목록</td></tr>
+        <tr><td><span class="m GET">GET</span></td><td><code>/bundle?ids=a,b</code></td><td><span class="scope">transfer</span></td><td>전부 / 고른 대화를 담은 zip (+ 동기화용 지문)</td></tr>
+        <tr><td><span class="m GET">GET</span></td><td><code>/sessions/{id}/transcript</code></td><td><span class="scope">transfer</span></td><td>대화 원문 .jsonl 하나</td></tr>
+        <tr><td><span class="m GET">GET</span></td><td><code>/status?ids=a,b</code></td><td><span class="scope">transfer</span></td><td>대화별 지금 상태 (올리기 전 확인용)</td></tr>
+        <tr><td><span class="m POST">POST</span></td><td><code>/sync[?dry_run=1]</code></td><td><span class="scope">sync</span></td><td>작은 zip(95MB 이하)을 한 번에 → 미리 보기 / 반영</td></tr>
+        <tr><td><span class="m POST">POST</span></td><td><code>/uploads</code></td><td><span class="scope">sync</span></td><td>조각 업로드 시작</td></tr>
+        <tr><td><span class="m PUT">PUT</span></td><td><code>/uploads/{upload_id}?offset=n</code></td><td><span class="scope">sync</span></td><td>조각 이어 붙이기 (64MB 이하)</td></tr>
+        <tr><td><span class="m GET">GET</span></td><td><code>/uploads</code> · <code>/uploads/{upload_id}</code></td><td><span class="scope">sync</span></td><td>올린 기록 · 하나 자세히</td></tr>
+        <tr><td><span class="m POST">POST</span></td><td><code>/uploads/{upload_id}/preview</code></td><td><span class="scope">sync</span></td><td>무엇이 어떻게 합쳐질지 (아무것도 안 바꿈)</td></tr>
+        <tr><td><span class="m POST">POST</span></td><td><code>/uploads/{upload_id}/apply</code></td><td><span class="scope">sync</span></td><td>반영</td></tr>
+        <tr><td><span class="m POST">POST</span></td><td><code>/uploads/{upload_id}/undo</code></td><td><span class="scope">sync</span></td><td>반영 전으로 되돌리기</td></tr>
+        <tr><td><span class="m DELETE">DELETE</span></td><td><code>/uploads/{upload_id}</code></td><td><span class="scope">sync</span></td><td>받은 파일 버리기 (반영 기록 · 백업은 남김)</td></tr>
+      </table></div>
+    </section>
+
+    <section>
+      <h2>⬇️ 내려받기</h2>
+      <h3 id="sessions"><span class="m GET">GET</span> <code>/sessions</code></h3>
+<pre><code>{ "sessions": [
+  { "cli_session_id": "0b6c…", "title": "결제 모듈 테스트 보강", "transcript_folder": "C--work-shop-api",
+    "size": 482113, "transcript_size": 470001, "sidecar_files": 3, "last_activity": 1793072650972,
+    "has_record": true, "live": false }
+] }</code></pre>
+      <ul>
+        <li><code>has_record</code>: Claude Desktop 세션 기록이 있으면 <code>true</code> — zip 의 <code>records/</code> 에 함께 담깁니다.</li>
+        <li><code>live</code>: 지금 서버에서 돌고 있는 세션인지. <b>돌고 있는 세션을 원격에서 이어 쓰면 양쪽이 갈라집니다</b> — 내려받기 전에 서버 쪽 세션을 끝내 두세요.</li>
+      </ul>
+
+      <h3 id="bundle"><span class="m GET">GET</span> <code>/bundle</code> · <code>/bundle?ids=a,b</code></h3>
+      <p>세션 스위처 백업 형식(manifest_version 2) zip 을 스트리밍으로 내려 줍니다.</p>
+<pre><code>manifest.json
+transcripts/&lt;cli_session_id&gt;.jsonl
+sidecars/&lt;cli_session_id&gt;/…        <span class="c"># 서브에이전트 기록 · 도구 결과 (있으면)</span>
+records/&lt;cli_session_id&gt;.json      <span class="c"># Claude Desktop 세션 기록 (있으면)</span></code></pre>
+<pre><code>{
+  "manifest_version": 2, "created_at": "2026-10-27T14:00:00", "source_computer": "OFFICE-PC", "source": "ai-office",
+  "code": [ { "cli_session_id": "0b6c…", "title": "…", "transcript": true, "record": true, "record_name": "local_….json",
+              "size": 482113, "sidecar_files": 3, "transcript_folder": "C--work-shop-api" } ],
+  "cowork": [], "warnings": [],
+  <b>"sync": { "server": "OFFICE-PC", "exported_at": "2026-10-27T05:00:00.000Z",
+            "base": { "0b6c…": { "sha256": "9f1c…", "size": 470001 } } }</b>
+}</code></pre>
+      <div class="note"><code>sync</code> 는 동기화용 추가 필드입니다(세션 스위처는 모르는 필드라 무시). 다시 올릴 때 <code>manifest.json</code> 의 <code>sync</code> 를 <b>그대로 두면</b>, 서버가 「내려받은 뒤 서버 쪽도 바뀌었는지」를 알려 줍니다.</div>
+
+      <h3 id="status"><span class="m GET">GET</span> <code>/status?ids=a,b</code></h3>
+<pre><code>{ "sessions": [
+  { "cli_session_id": "0b6c…", "exists": true, "transcript_folder": "C--work-shop-api",
+    "sha256": "9f1c…", "lines": 412, "size": 470001, "last_activity": 1793072650972, "live": false },
+  { "cli_session_id": "3333…", "exists": false }
+] }</code></pre>
+      <p><code>sha256</code> 이 내려받을 때의 <code>sync.base[id].sha256</code> 과 같으면 서버 쪽은 그 뒤로 안 바뀐 것 — 올리면 깔끔하게 이어 붙습니다.</p>
+    </section>
+
+    <section>
+      <h2>⬆️ 올리기 · 동기화</h2>
+      <h3 id="upload-format">올리는 zip 형식</h3>
+      <p><b>내려받은 것과 같은 형식</b>입니다. 최소 요건:</p>
+      <ul>
+        <li><code>manifest.json</code> 의 <code>code[]</code> 에 대화마다 <code>{ "cli_session_id": "&lt;uuid&gt;", "title": "…", "transcript": true }</code></li>
+        <li><code>transcripts/&lt;cli_session_id&gt;.jsonl</code></li>
+        <li>선택: <code>sidecars/&lt;id&gt;/…</code> · <code>records/&lt;id&gt;.json</code> · <code>code[].transcript_folder</code> · <code>code[].record_name</code> · 내려받을 때 받은 <code>sync</code></li>
+      </ul>
+      <p>zip 은 stored · deflate, zip64, UTF-8 파일 이름을 읽습니다(파이썬 <code>zipfile</code> · 세션 스위처 백업 그대로 됨). 암호 zip 은 안 됩니다.</p>
+
+      <h3 id="sync"><span class="m POST">POST</span> <code>/sync</code> — 작은 파일 한 번에</h3>
+      <p>본문에 zip 바이트를 그대로 보냅니다 (<code>Content-Type: application/zip</code>, <code>Content-Length</code> 필수, 95MB 이하).</p>
+      <div class="tbl"><table>
+        <tr><th>쿼리</th><th>뜻</th></tr>
+        <tr><td><code>dry_run=1</code></td><td>미리 보기만 (반영 안 함). <b>처음엔 이걸로 확인하는 걸 권장</b></td></tr>
+        <tr><td><code>ids=a,b</code></td><td>이 대화만 반영</td></tr>
+        <tr><td><code>overwrite=a,b</code></td><td>이 대화는 병합 대신 올린 것으로 덮어쓰기</td></tr>
+        <tr><td><code>records=0</code></td><td>등록 파일(Claude Desktop 사이드바)은 넣지 않기</td></tr>
+        <tr><td><code>force_live=1</code></td><td>서버에서 지금 쓰는 중인 세션도 반영 (권장 안 함)</td></tr>
+        <tr><td><code>device=…</code> · <code>name=…</code></td><td>기록용 컴퓨터 이름 · 파일 이름</td></tr>
+      </table></div>
+      <p>응답: <code>dry_run=1</code> 이면 <a href="#preview">미리 보기</a>, 아니면 <a href="#apply">반영 결과</a> + <code>preview</code> 요약. 어느 쪽이든 <code>upload_id</code> 가 들어 있어 나중에 되돌릴 수 있습니다.</p>
+
+      <h3 id="chunks">조각 업로드 — 큰 파일</h3>
+      <div class="note">Cloudflare 터널 같은 프록시는 요청 하나에 100MB 제한이 있습니다. 큰 zip 은 조각으로 나눠 올리세요 (16~32MB 권장).</div>
+      <ol>
+        <li><span class="m POST">POST</span> <code>/uploads</code> <code>{ "size": 734003200, "name": "work.zip", "device": "LAB-PC" }</code><br>→ <code>{ "upload_id": "20261027140000-1a2b3c4d", "chunk_max": 67108864, "size": 734003200 }</code></li>
+        <li><span class="m PUT">PUT</span> <code>/uploads/{upload_id}?offset=&lt;지금까지 보낸 바이트&gt;</code> 본문 = 조각 바이트<br>→ <code>{ "received": 33554432, "size": 734003200, "complete": false }</code> … 마지막 조각에서 <code>"complete": true</code></li>
+        <li>끊겼으면 <span class="m GET">GET</span> <code>/uploads/{upload_id}</code> 의 <code>received</code> 부터 다시 보냅니다. offset 이 틀리면 <code>409</code> + <code>received</code>.</li>
+        <li>다 받으면 <a href="#preview">preview</a> → 확인 → <a href="#apply">apply</a>. 다 받지 않은 업로드는 24시간 뒤 지워집니다.</li>
+      </ol>
+
+      <h3 id="preview"><span class="m POST">POST</span> <code>/uploads/{upload_id}/preview</code></h3>
+      <p>아무것도 바꾸지 않고 대화마다 무슨 일이 일어날지 알려 줍니다.</p>
+<pre><code>{
+  "upload_id": "20261027140000-1a2b3c4d", "source_computer": "LAB-PC",
+  "exported_from": { "server": "OFFICE-PC", "exported_at": "2026-10-27T05:00:00.000Z" },
+  "summary": { "sessions": 3, "new": 1, "remote_newer": 1, "diverged": 1, "same": 0, "server_newer": 0, "live": 0, "add_lines": 57 },
+  "sessions": [
+    { "cli_session_id": "1111…", "title": "API 리팩터링", "status": "remote_newer", "server_lines": 300, "remote_lines": 340,
+      "add_lines": 40, "server_only_lines": 0, "server_changed_since_export": false, "live": false,
+      "sidecars": 4, "sidecars_new": 2, "record": "exists" },
+    { "cli_session_id": "2222…", "status": "diverged", "add_lines": 15, "server_only_lines": 6, "server_changed_since_export": true },
+    { "cli_session_id": "3333…", "status": "new", "add_lines": 2, "record": "new", "transcript_folder": "D--lab-proj" }
+  ],
+  "warnings": []
+}</code></pre>
+      <div class="tbl"><table>
+        <tr><th>status</th><th>뜻</th><th>기본 반영 (병합)</th></tr>
+        <tr><td><code>new</code></td><td>서버에 없는 대화</td><td>새로 만든다</td></tr>
+        <tr><td><code>remote_newer</code></td><td>원격에서만 늘어남 (서버는 그대로)</td><td>원격 줄을 뒤에 붙인다 = 원격과 같아짐</td></tr>
+        <tr><td><code>diverged</code></td><td>양쪽 다 바뀜</td><td>서버 줄은 그대로, 원격에만 있는 줄을 뒤에 붙인다 (둘 다 남음)</td></tr>
+        <tr><td><code>same</code></td><td>내용 같음</td><td>아무것도 안 함</td></tr>
+        <tr><td><code>server_newer</code></td><td>서버에만 더 있음</td><td>아무것도 안 함 (서버가 최신)</td></tr>
+        <tr><td><code>no_transcript</code></td><td>zip 에 대화 파일이 없음</td><td>건너뜀</td></tr>
+      </table></div>
+      <ul>
+        <li><code>server_changed_since_export</code>: 올린 zip 에 <code>sync.base</code> 가 있을 때만. <code>true</code> 면 내려받은 뒤 서버에서도 이어 썼다는 뜻.</li>
+        <li><code>live</code>: 서버에서 지금 쓰는 중(또는 30초 안에 바뀜) — 반영할 때 건너뜁니다.</li>
+        <li><code>record</code>: <code>new</code>(사이드바 등록 파일을 넣음) · <code>exists</code>(이미 있음, 그대로) · <code>none</code>.</li>
+      </ul>
+
+      <h3 id="apply"><span class="m POST">POST</span> <code>/uploads/{upload_id}/apply</code></h3>
+      <p>모든 필드는 선택입니다. 비우면 zip 의 모든 대화를 병합합니다.</p>
+<pre><code>{
+  "ids": ["1111…", "3333…"],          <span class="c">// 이 대화만 (없으면 전부)</span>
+  "overwrite": [],                    <span class="c">// 병합 대신 덮어쓸 대화</span>
+  "records": true,                    <span class="c">// 사이드바 등록 파일 넣기</span>
+  "force_live": false,                <span class="c">// 지금 쓰는 중인 세션도 (권장 안 함)</span>
+  "folder_map": { "D--lab-proj": "C--work-proj" }   <span class="c">// 새 대화를 둘 서버 프로젝트 폴더</span>
+}</code></pre>
+      <p><code>folder_map</code> 은 <b>서버에 없던 새 대화</b>를 어느 프로젝트 폴더(<code>~/.claude/projects/&lt;폴더&gt;</code>)에 둘지 정합니다. 원격 컴퓨터와 작업 경로가 다를 때 씁니다. 이미 있는 대화는 원래 있던 폴더에 합칩니다.</p>
+<pre><code>{
+  "upload_id": "20261027140000-1a2b3c4d",
+  "transcripts": 2, "merged": 1, "overwritten": 0, "created": 1, "unchanged": 0,
+  "sidecars": 2, "records": 1,
+  "skipped": [ { "cli_session_id": "2222…", "reason": "이 PC 에서 지금 쓰는 중인 세션 (force_live 로 강제 가능)" } ],
+  "warnings": [],
+  "sessions": [ { "cli_session_id": "1111…", "title": "…", "result": "merged", "folder": "C--work-shop-api" } ]
+}</code></pre>
+
+      <h3 id="undo"><span class="m POST">POST</span> <code>/uploads/{upload_id}/undo</code></h3>
+      <p><code>{ "force": false }</code> → <code>{ "restored": 1, "deleted": 4, "warnings": [] }</code></p>
+      <p>반영 전 원본(서버 <code>data/sync/backups/&lt;upload_id&gt;/</code>)으로 되돌리고, 그 반영이 새로 만든 파일(대화 · 보조 기록 · 등록 파일)은 지웁니다. 반영 기록과 백업은 최근 30건까지 남습니다.</p>
+      <div class="note warn">반영한 뒤 그 대화를 서버에서 또 이어 썼으면 <code>409</code> 입니다 — 되돌리면 그 사이 기록이 사라지기 때문입니다. 그래도 하려면 <code>"force": true</code>.</div>
+    </section>
+
+    <section id="rules">
+      <h2>🧩 합치는 규칙</h2>
+      <p>세션 스위처의 복원과 같은 규칙입니다.</p>
+      <ul>
+        <li><b>대화(.jsonl)는 줄 단위 병합이 기본.</b> 서버 줄 순서는 그대로, 올린 쪽에만 있는 줄을 뒤에 붙입니다. 똑같은 줄은 한 번만 → 어느 쪽 기록도 사라지지 않습니다.<br>줄은 개행(<code>\n</code> · <code>\r\n</code> · <code>\r</code>)으로만 나누고 빈 줄은 버립니다.</li>
+        <li><b>덮어쓰기는 <code>overwrite</code> 로 고른 대화만.</b> 서버에서 그 뒤에 쓴 내용은 사라지니(백업은 남음) 꼭 필요할 때만.</li>
+        <li><b>보조 기록(sidecars)은 서버에 없는 파일만 채웁니다.</b> 덮으면 서버에서 이어 쓴 기록을 잃기 때문입니다.</li>
+        <li><b>등록 파일(records)은 서버에 같은 세션 기록이 없을 때만</b> 가장 최근에 쓰인 Claude Desktop 계정 폴더에 넣습니다. 사이드바에 안 보이면 세션 스위처의 「세션 통합연결」을 한 번 돌리세요.</li>
+        <li><b>지금 쓰는 세션은 건너뜁니다</b> (서버에 살아 있거나 30초 안에 바뀐 대화).</li>
+        <li>한 번에 하나만 반영합니다 (동시에 오면 <code>423</code>).</li>
+      </ul>
+    </section>
+
+    <section id="workflow">
+      <h2>🗺️ 권장 작업 순서</h2>
+      <ol>
+        <li>서버에서 그 세션을 끝냅니다 (돌고 있는 채로 가져가면 양쪽이 갈라집니다).</li>
+        <li><code>GET /bundle?ids=…</code> → 원격 컴퓨터에서 복원 · 작업.</li>
+        <li>그동안 서버에서 같은 대화를 이어 쓰지 않습니다 (써도 병합으로 둘 다 남지만 대화가 두 갈래가 됩니다).</li>
+        <li>원격에서 백업 zip 을 만들어 <code>dry_run</code> / <code>preview</code> 로 확인 → <code>apply</code>.</li>
+        <li>이상하면 <code>undo</code>.</li>
+      </ol>
+    </section>
+
+    <section id="examples">
+      <h2>💡 예시</h2>
+      <h3>curl (bash)</h3>
+<pre><code>AIO=http://127.0.0.1:17777            <span class="c"># 서버 주소</span>
+KEY=aio_xxxxxxxxxxxxxxxx              <span class="c"># scope sync 키</span>
+B=$AIO/api/transfer/v1
+
+<span class="c"># 내려받기</span>
+curl -H "Authorization: Bearer $KEY" "$B/sessions"
+curl -H "Authorization: Bearer $KEY" -o work.zip "$B/bundle?ids=0b6c...,9f2a..."
+
+<span class="c"># (원격에서 작업 후) 작은 파일: 미리 보기 → 반영</span>
+curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/zip" \
+     --data-binary @work-done.zip "$B/sync?dry_run=1&amp;device=LAB-PC"
+curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/zip" \
+     --data-binary @work-done.zip "$B/sync?device=LAB-PC"
+
+<span class="c"># 큰 파일: 조각으로</span>
+SIZE=$(stat -c %s big.zip)
+ID=$(curl -s -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+     -d "{\"size\":$SIZE,\"name\":\"big.zip\"}" "$B/uploads" \
+     | python -c "import sys,json;print(json.load(sys.stdin)['upload_id'])")
+split -b 32m -d big.zip part_
+OFF=0; for f in part_*; do
+  curl -s -X PUT -H "Authorization: Bearer $KEY" --data-binary @$f "$B/uploads/$ID?offset=$OFF"
+  OFF=$((OFF + $(stat -c %s $f)))
+done
+curl -X POST -H "Authorization: Bearer $KEY" "$B/uploads/$ID/preview"
+curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}' "$B/uploads/$ID/apply"
+
+<span class="c"># 되돌리기</span>
+curl -X POST -H "Authorization: Bearer $KEY" "$B/uploads/$ID/undo"</code></pre>
+
+      <h3>Python — 오프라인 소프트웨어에 붙이기</h3>
+<pre><code>import os, requests
+
+class AioSync:
+    def __init__(self, base, key, chunk=32 * 1024 * 1024):
+        self.b = base.rstrip("/") + "/api/transfer/v1"
+        self.s = requests.Session(); self.s.headers["Authorization"] = "Bearer " + key
+        self.chunk = chunk
+
+    def sessions(self):
+        return self.s.get(f"{self.b}/sessions").json()["sessions"]
+
+    def download(self, ids, path):
+        with self.s.get(f"{self.b}/bundle", params={"ids": ",".join(ids)}, stream=True) as r:
+            r.raise_for_status()
+            with open(path, "wb") as f:
+                for c in r.iter_content(1 &lt;&lt; 20): f.write(c)
+
+    def upload(self, path, device=""):
+        size = os.path.getsize(path)
+        up = self.s.post(f"{self.b}/uploads", json={"size": size, "name": os.path.basename(path), "device": device}).json()
+        uid, step = up["upload_id"], min(self.chunk, up["chunk_max"])
+        with open(path, "rb") as f:
+            off = 0
+            while off &lt; size:
+                f.seek(off); data = f.read(step)
+                r = self.s.put(f"{self.b}/uploads/{uid}", params={"offset": off}, data=data)
+                if r.status_code == 409:                      <span class="c"># 끊겼다 이어 보낼 때: 서버가 받은 곳부터</span>
+                    off = r.json()["received"]; continue
+                r.raise_for_status(); off = r.json()["received"]
+        return uid
+
+    def preview(self, uid):
+        return self.s.post(f"{self.b}/uploads/{uid}/preview").json()
+
+    def apply(self, uid, **opt):                              <span class="c"># ids · overwrite · records · force_live · folder_map</span>
+        return self.s.post(f"{self.b}/uploads/{uid}/apply", json=opt).json()
+
+    def undo(self, uid, force=False):
+        return self.s.post(f"{self.b}/uploads/{uid}/undo", json={"force": force}).json()
+
+aio = AioSync("http://127.0.0.1:17777", "aio_xxxxxxxxxxxxxxxx")
+uid = aio.upload("work-done.zip", device="LAB-PC")
+p = aio.preview(uid)
+for s in p["sessions"]:
+    print(s["status"], s.get("add_lines"), s.get("title"))
+if p["summary"]["diverged"] == 0:
+    print(aio.apply(uid))</code></pre>
+    </section>
+
+    <section id="errors">
+      <h2>⚠️ 오류 코드</h2>
+      <div class="tbl"><table>
+        <tr><th>코드</th><th>언제</th></tr>
+        <tr><td><code>400</code></td><td>zip 이 아님 · manifest 없음 · 손상(CRC) · 암호 zip · size 누락</td></tr>
+        <tr><td><code>401</code></td><td>키 없음 / 틀림</td></tr>
+        <tr><td><code>403</code></td><td>권한 부족 (<code>transfer</code> 키로 올리기 등)</td></tr>
+        <tr><td><code>404</code></td><td>없는 업로드 · 없는 대화</td></tr>
+        <tr><td><code>409</code></td><td>offset 불일치(이어 올리기) · 아직 다 안 받음 · 이미 반영 · 되돌리면 안 되는 상태</td></tr>
+        <tr><td><code>410</code></td><td>반영 후 정리돼 올린 파일이 없음</td></tr>
+        <tr><td><code>411</code> · <code>413</code></td><td>Content-Length 없음 · 너무 큼 (한 번에 95MB · 조각 64MB · 전체 8GB)</td></tr>
+        <tr><td><code>423</code></td><td>다른 반영이 진행 중</td></tr>
+      </table></div>
+      <p>오류 응답은 <code>{ "error": "설명" }</code> 형태이고, 경우에 따라 <code>received</code> · <code>changed</code> 같은 추가 정보가 붙습니다.</p>
+    </section>
+
+    <section id="security">
+      <h2>🔒 보안</h2>
+      <ul>
+        <li>키 없이는 401. 올리기는 서버 PC 의 대화 파일을 바꾸므로 <b><code>sync</code> 키는 믿는 컴퓨터에만</b> 주고, 다 쓰면 폐기하세요.</li>
+        <li>zip 안 경로는 검사합니다: <code>..</code> · 절대 경로 · 드라이브 문자는 거부, 세션 id 는 UUID 만, 폴더 이름은 영숫자와 <code>-</code> 만. 압축 폭탄(파일당 1GB · 합계 16GB)과 CRC 도 검사합니다.</li>
+        <li>바꾸기 전 원본은 서버 <code>data/sync/backups/</code> 에 남고 <code>undo</code> 로 되돌릴 수 있습니다.</li>
+        <li>외부 주소(터널)로도 열려 있으니 키를 링크 · 채팅에 붙이지 마세요.</li>
+      </ul>
+    </section>
+
+    <footer>AI OFFICE · 세션 전송 · 동기화 API v1</footer>
+  </main>
+</div>
+</body>
+</html>

@@ -27,7 +27,7 @@
   body.drawer-wide #floors { left: calc(min(560px, 60vw) + 24px); }
 }
 @media (min-width: 761px) and (max-width: 980px) {
-  #floors { width: 92px; }
+  #floors { width: auto; min-width: 92px; }
   .ep-cur { display: none; }
   .ep-floor { grid-template-columns: 34px auto; justify-content: space-between; }
   .ep-floor span { display: none; }
@@ -65,3 +65,194 @@
 .mg-persona .mg-pz { display: inline-flex; gap: 5px; align-items: baseline; min-width: 0; }
 .mg-persona .mg-pz small { color: var(--ink2); font-size: 11px; }
 .mg-persona select.mg-in { max-width: 130px; }
+
+/* 맵 · 설정 통합 창: 탭 두 개 (🗺️ 맵 선택 · ⚙️ 표시 · 알림) */
+.mp-tabs { display: flex; gap: 4px; margin: 0 40px 8px 2px; }
+.mp-tabs button { border: none; background: var(--bg2); color: var(--ink); border-radius: 99px; padding: 6px 13px; cursor: pointer; font-family: var(--cute); font-size: 14px; }
+.mp-tabs button.on { background: var(--accent); color: #fff; }
+.map-pop .map-hint { font-size: 11px; color: var(--ink2); margin: 0 4px 6px; }
+.mp-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.mp-more { margin-top: 10px; }
+.map-btn .mp-gear { font-size: 12px; margin-left: 4px; opacity: .75; }
+@media (max-width: 760px) { .mp-opts { grid-template-columns: 1fr; } .mp-tabs { margin-right: 44px; } }
+
+/* 바깥 · 건물 버튼: 이름이 길어도 한 줄로 (작은 화면에서 '꼬마빌딩' 이 두 줄로 꺾이던 문제) */
+.nav-b button { white-space: nowrap; }
+#floors > .elev-panel { align-self: stretch; }
+
+/* ---------------------------------------------------------------- 모바일 · 태블릿 스크롤
+   ① 휴대폰에서 맵 · 설정 창이 데스크톱 폭(760px)으로 화면 밖까지 나가 터치가 닿지 않던 문제
+   ② 터치 화면에서 패널 안에 또 스크롤 영역(목록 · 소식 · 맵 목록)이 있으면 손가락이 안쪽에 걸려 패널이 안 내려가던 문제
+      → 터치 기기에선 안쪽 스크롤을 풀고 패널 하나만 스크롤 */
+@media (max-width: 760px) {
+  .map-pop { width: auto; left: calc(16px + env(safe-area-inset-left)); right: calc(16px + env(safe-area-inset-right)); }
+}
+@media (pointer: coarse) {
+  #side .list, #side .feed, .map-pop .map-grid { max-height: none; overflow: visible; }
+  #side > .card.feed-card { flex: none; }
+  #side, .pop, #drawer, .modal-card, #mgr .mg-scroll, #mgr .mg-body, .mm-list, .mm-detail, .ch-list, .ch-right { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+}
+
+/* 층 강조: 세션 수에 따라 3단계 (계정 옵션 › 맵 표시 › 층 강조) */
+.ep-floor.heat-1 { background: rgba(255, 210, 110, .16); }
+.ep-floor.heat-1 em { background: #c99a2e; color: #fff; }
+.ep-floor.heat-2 { background: rgba(255, 160, 60, .26); box-shadow: inset 0 0 0 1.5px rgba(255, 170, 70, .7); }
+.ep-floor.heat-2 em { background: #e2862c; color: #fff; }
+.ep-floor.heat-3 { background: rgba(255, 90, 60, .3); box-shadow: inset 0 0 0 2px rgba(255, 110, 70, .9), 0 0 12px rgba(255, 100, 60, .55); animation: heatPulse 1.6s ease-in-out infinite; }
+.ep-floor.heat-3 em { background: #e5534b; color: #fff; }
+@keyframes heatPulse { 50% { box-shadow: inset 0 0 0 2px rgba(255, 140, 90, 1), 0 0 20px rgba(255, 100, 60, .85); } }
+body.reduce-motion .ep-floor.heat-3 { animation: none; }
+.pf-heatt { display: flex; gap: 8px; flex-wrap: wrap; }
+.pf-heatt label { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; }
+.pf-heatt input { width: 58px; }
+
+/* ---------------------------------------------------------------- 층 이동: '현재 층' 정보는 위에 고정, 층 목록만 스크롤 */
+.ep-list { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
+.ep-list > * { flex: none; }
+@media (min-width: 761px) {
+  #floors > .elev-panel { overflow: hidden; }
+  .elev-panel .ep-list { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
+  .elev-panel .ep-list::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 760px) {
+  .elev-panel { overflow: visible; }
+  .elev-panel .ep-list { flex-direction: row; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .elev-panel .ep-list::-webkit-scrollbar { display: none; }
+}
+
+/* ---------------------------------------------------------------- 👁️ 세션 보기 필터 (맵 선택 창 › 세션 보기) */
+.view-btn .lbl { margin-left: 3px; font-size: 12px; }
+.vf { display: flex; flex-direction: column; gap: 10px; max-height: min(70vh, 640px); overflow-y: auto; padding-right: 2px; }
+.vf-sum { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; background: var(--bg2); border-radius: 12px; padding: 8px 12px; }
+.vf-sec { border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px 10px; }
+.vf-h { font-family: var(--cute); font-size: 13px; color: var(--ink2); margin: 6px 0 4px; }
+.vf-h small { font-family: inherit; margin-left: 6px; }
+.vf-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 4px; font-size: 13px; }
+.vf-scroll { max-height: 92px; overflow-y: auto; }
+.vf-chip { border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 99px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; }
+.vf-chip.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+.vf-seg { display: flex; gap: 4px; background: var(--bg2); border-radius: 99px; padding: 3px; width: fit-content; max-width: 100%; }
+.vf-seg button { border: none; background: none; border-radius: 99px; padding: 5px 12px; cursor: pointer; font-family: var(--cute); font-size: 13.5px; color: var(--ink); }
+.vf-seg button.on { background: var(--accent); color: #fff; }
+.vf input[type=date], .vf-q { border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 5px 8px; font: inherit; font-size: 13px; }
+.vf-q { flex: 1 1 180px; min-width: 0; }
+.vf-list { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow-y: auto; margin-top: 4px; }
+.vf-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 10px; background: var(--bg2); }
+.vf-item.off { opacity: .5; }
+.vf-name { min-width: 0; display: flex; flex-direction: column; }
+.vf-name b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vf-name small { font-size: 11px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vf-tri { display: flex; gap: 2px; flex: none; }
+.vf-tri button { border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; width: 30px; height: 28px; cursor: pointer; font-size: 13px; }
+.vf-tri button.on { border-color: var(--accent); background: #fff3e0; }
+@media (max-width: 760px) { .vf { max-height: none; } .vf-list { max-height: 50vh; } }
+
+/* ---------------------------------------------------------------- 상단 메뉴 줄: 글자 · 아이콘 세로 가운데 정렬
+   버튼마다 줄 높이(line-height)가 달라 글자가 위아래로 들쭉날쭉 → 모두 같은 높이의 가운데 정렬 상자로, 글자 줄 높이는 1 */
+.tools > .clock, .tools > .tbtn, .tools > .set-btn, .tools > .auth-btn, .dock-btn { display: inline-flex; align-items: center; justify-content: center; line-height: 1; height: 34px; box-sizing: border-box; }
+.tools > .set-btn, .tools > .auth-btn { padding-top: 0; padding-bottom: 0; }
+.dock-btn { padding-top: 0; padding-bottom: 0; }
+.dock-btn .ic, .set-btn .lbl, .auth-btn .lbl, .dock-btn .lbl, .tm-pill-time { line-height: 1; display: inline-block; }
+/* 글꼴마다 글자가 그려지는 높이가 달라 실제 잉크 위치를 재서 맞춘 보정값 (줄 가운데 ±0.5px 안)
+   귀여운 글꼴(Jua: 시계 · 뽀모도로 · EN)은 위로 뜨고, 본문 글꼴 라벨 · 이모지 아이콘은 아래로 처진다 */
+.tools > .clock { padding-top: 2px; }
+.tm-pill-time { transform: translateY(1.2px); }
+#btnLang { padding-top: 3px; }
+#btnAcct { padding-top: 2px; }
+#btnMap { padding-top: 1px; }
+.tools > .tbtn { padding: 0 0 3px; }
+.dock-btn .lbl { transform: translateY(-.7px); }
+.dock-btn .ic { transform: translateY(-1px); }
+.dock-btn[data-admin=company] .ic { transform: translateY(-1.8px); }
+.dock-btn[data-admin=sessions] .ic, .dock-btn[data-admin=users] .ic { transform: translateY(-3px); }
+@media (max-width: 760px) { .tools > .tbtn, .tools > .set-btn, .tools > .auth-btn { height: 36px; } }   /* 휴대폰은 원래대로 36px 터치 크기 */
+
+/* ---------------------------------------------------------------- 🎯 따라가기 · 자동 포커스 */
+.follow-bar { position: fixed; left: 50%; transform: translateX(-50%); top: calc((var(--top-h, 62px) + 10px)); z-index: 30; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; border-radius: 99px; background: var(--card); box-shadow: var(--shadow); border: 2px solid var(--accent); font-size: 13.5px; cursor: pointer; max-width: calc(100vw - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: slidein .2s ease-out; }
+.follow-bar button { border: none; background: var(--bg2); border-radius: 50%; width: 26px; height: 26px; cursor: pointer; flex: none; }
+.follow-bar button:hover { background: var(--accent); color: #fff; }
+.d-follow { float: right; margin: 0 0 6px 8px; border: 2px solid var(--line); background: var(--bg2); color: var(--ink); border-radius: 99px; padding: 4px 11px; font-family: var(--cute); font-size: 13px; cursor: pointer; }
+.d-follow:hover, .d-follow.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+@media (max-width: 760px) { .follow-bar { top: calc(64px + env(safe-area-inset-top)); font-size: 12.5px; } }
+
+/* ---------------------------------------------------------------- 🏷️ 계정 옵션 › 타이틀 · 파비콘 */
+.pf-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.pf-pair label { display: flex; align-items: center; gap: 4px; font-size: 13px; min-width: 0; }
+.pf-pair .mg-in { flex: 1; min-width: 0; }
+.pf-emo { border: 2px solid var(--line); background: var(--card); border-radius: 10px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; line-height: 1; }
+.pf-emo.on { border-color: var(--accent); background: #fff3e0; }
+.pf-emoin { width: 70px; }
+.pf-file { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.pf-file img { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); }
+.pf-tabpv { display: flex; align-items: center; gap: 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px 10px 0 0; padding: 7px 12px; margin: 8px 0 4px; max-width: 360px; font-size: 13px; }
+.pf-tabpv img { width: 18px; height: 18px; flex: none; }
+.pf-tabpv span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-tabpv small { color: var(--ink2); font-size: 11px; flex: none; }
+.brand .logo img { width: 1em; height: 1em; border-radius: 6px; object-fit: cover; vertical-align: middle; }
+@media (max-width: 760px) { .pf-pair { grid-template-columns: 1fr; } }
+.pf-lg { font-size: 10.5px; color: var(--ink2); min-width: 18px; }
+
+/* 상단 상태 칩: 가운데 정렬은 넘칠 때 왼쪽 끝이 잘려 안 보였다 → 넘치지 않을 때만 가운데(auto 여백) · 넘치면 양 끝 ‹ › */
+.chips { justify-content: flex-start; position: relative; }
+.chips > .chip:first-child { margin-left: auto; }
+.chips > .chip:nth-last-child(3) { margin-right: auto; }
+.chip-nav { display: none; position: sticky; z-index: 2; flex: none; align-self: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); color: var(--ink); box-shadow: var(--shadow); cursor: pointer; font-size: 17px; line-height: 1; padding: 0 0 2px; order: 99; }
+.chip-nav.l { left: 0; order: -1; margin-right: -34px; }
+.chip-nav.r { right: 0; margin-left: -34px; }
+.chips.can-l .chip-nav.l, .chips.can-r .chip-nav.r { display: inline-flex; align-items: center; justify-content: center; }
+.chip-nav:hover { border-color: var(--accent); }
+/* 관리 표 머리글: 좁은 열에서 「직급 · 직책」 · 「메모」 가 여러 줄로 꺾이지 않게 */
+.mg-table th { white-space: nowrap; }
+/* 휴대폰: 시계는 숨김 (상단 메뉴 정렬 규칙이 원래의 숨김을 덮어써 시계가 보이고 제목이 「박」 한 글자로 눌리던 문제) */
+@media (max-width: 760px) { .tools > .clock { display: none; } }
+/* 세션 상세: 따라가기 버튼이 오른쪽 위 ✕ 닫기와 겹치지 않게 */
+.d-follow { margin-right: 38px; }
+@media (max-width: 760px) { .tools .set-btn .lbl, .tools .auth-btn .lbl { display: none; } .brand { min-width: 96px; } }   /* 휴대폰은 원래대로 아이콘만 — 정렬 규칙이 숨김을 덮어써 제목이 밀려나던 문제 */
+
+/* ---------------------------------------------------------------- 🎨 그래픽 테마 */
+#skinOverlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; mix-blend-mode: multiply; }
+#skinOverlay.paper { background-repeat: repeat, no-repeat; background-size: 160px 160px, 100% 100%; opacity: 0.9; }
+#skinOverlay.film { background-repeat: repeat, no-repeat; background-size: 160px 160px, 100% 100%; mix-blend-mode: normal; animation: skinGrain 0.5s steps(3) infinite; }
+#skinOverlay.scan { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 1px, rgba(0,0,0,0) 1px 3px), radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.5) 100%); mix-blend-mode: normal; }
+@keyframes skinGrain { 0% { background-position: 0 0, 0 0; } 33% { background-position: -40px 25px, 0 0; } 66% { background-position: 30px -35px, 0 0; } }
+.skin-card .mi { font-size: 26px; }
+.skin-credit { font-size: 11.5px; margin-top: 8px; }
+
+.skin-sets { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 8px; }
+.skin-sky { margin-bottom: 8px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- ⚙️ 표시 · 알림 (묶음 카드) */
+.so { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.so-card { background: var(--bg2); border-radius: 16px; padding: 12px 14px 14px; min-width: 0; }
+.so-wide { grid-column: 1 / -1; }
+.so-card h4 { margin: 0 0 10px; font-size: 13.5px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.so-card h4 small { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.so-grid { display: grid; gap: 6px; }
+.so-sw { display: flex; align-items: center; gap: 8px; padding: 7px 4px; cursor: pointer; border-radius: 10px; font-size: 13px; }
+.so-sw:hover { background: rgba(0,0,0,0.03); }
+.so-ic { width: 22px; text-align: center; flex: none; font-size: 15px; line-height: 1; }
+.so-l { flex: 1; min-width: 0; line-height: 1.3; }
+.so-l kbd { font-size: 10px; }
+.so-sw input { position: absolute; opacity: 0; width: 0; height: 0; }
+.so-sw i { flex: none; width: 36px; height: 21px; border-radius: 11px; background: var(--line); position: relative; transition: background .18s; }
+.so-sw i::after { content: ''; position: absolute; left: 3px; top: 3px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform .18s; }
+.so-sw input:checked + i { background: var(--accent); }
+.so-sw input:checked + i::after { transform: translateX(15px); }
+.so-sw input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+.so-choice { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.so-choice button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px 11px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card, var(--bg)); color: var(--ink); cursor: pointer; font: inherit; min-width: 0; }
+.so-choice button b { font-size: 12.8px; line-height: 1.3; }
+.so-choice button small { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.so-choice button .so-ic { width: auto; font-size: 18px; margin-bottom: 2px; }
+.so-choice button:hover { border-color: var(--accent); }
+.so-choice button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card, var(--bg))); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.so-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 12.5px; flex-wrap: wrap; }
+.so-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--card, var(--bg)); padding: 3px; border-radius: 11px; border: 1px solid var(--line); }
+.so-seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.so-seg button:hover { background: rgba(0,0,0,0.05); }
+.so-seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+@media (max-width: 760px) { .so { grid-template-columns: 1fr; } .so-choice { grid-template-columns: 1fr 1fr; } }
+
+/* 관리 메뉴 글자: 줄바꿈 금지 · 1500px 이하에서는 아이콘만 (위 세로 정렬 규칙이 v5 의 숨김 규칙을 덮어써서 「세션 관리」 가 두 줄로 접히던 것) */
+.dock-btn .lbl { white-space: nowrap; }
+@media (max-width: 1500px) { .dock-btn .lbl, .acct-btn .lbl { display: none; } }

@@ -32,8 +32,26 @@ function sessionFor(s, tier, policyOf, defaults) {
 }
 
 /** 보는 사람(viewer: null=비로그인 · {admin} · {tier})에 맞춘 상태 */
+/** 직접 만든 캐릭터의 공개 범위: 못 보는 사람에게는 독립 캐릭터는 아예 빼고, 세션에 입힌 인적사항은 원래대로 */
+function hideChars(out, tier) {
+  const gone = new Set();
+  out.sessions = out.sessions.filter((r) => {
+    const c = r.custom; if (!c) return true;
+    const min = c.seeMin == null ? -1 : c.seeMin;
+    if (tier >= min) { delete c.seeMin; return true; }
+    if (!c.linked) { gone.add(r.id); return false; }
+    r.persona = r.basePersona || null; r.look = null; delete r.bubble; delete r.custom; return true;
+  });
+  out.sessions.forEach((r) => { delete r.basePersona; });
+  if (gone.size) out.feed = (out.feed || []).filter((f) => !gone.has(f.sid));
+  return out;
+}
+
 export function stateFor(state, viewer, { policyOf, defaults, configured }) {
   if (viewer && viewer.admin) return { ...state, auth: { authed: true, admin: true, user: viewer.user, tierName: '관리자' } };
+  return hideChars(stateFor0(state, viewer, { policyOf, defaults, configured }), viewer ? viewer.tier : -1);
+}
+function stateFor0(state, viewer, { policyOf, defaults, configured }) {
   const base = redactState(state, configured);
   base.ranks = state.ranks;
   base.building = { floors: Object.fromEntries(Object.entries((state.building && state.building.floors) || {}).map(([k, f]) => [k, f.title ? { title: f.title } : {}])) };

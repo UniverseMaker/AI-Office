@@ -30,12 +30,16 @@
     const d = SLICE[f.type] ?? (AIO.props && AIO.props[f.type] && AIO.props[f.type].slice);
     if (d && (f.w || 0) >= 1.5) {
       const n = Math.ceil(f.w), yf = f.y + d;
-      for (let i = 0; i < n; i++) list.push({ k: f.x + i + 0.5 + f.y + d / 2, f, clip: [i === 0 ? -1e7 : (f.x + i - yf) * 32, i === n - 1 ? 1e7 : (f.x + i + 1 - yf) * 32] });
+      for (let i = 0; i < n; i++) list.push({ k: f.x + i + 0.5 + f.y + d / 2, f, si: i, sn: n, clip: [i === 0 ? -1e7 : (f.x + i - yf) * 32, i === n - 1 ? 1e7 : (f.x + i + 1 - yf) * 32] });
     } else list.push({ k: sortKey(f), f });
   }
   const WALKERS = 45;
 
   /** where a session belongs: active → tower desk · paused → rest spots · stopped → factory · jail → 유치장 · vault → 금고 */
+  if (AIO.i18n) AIO.i18n.add({ '주세요!': 'please!', '샀어요!': 'bought!', '사러 가는 중': 'going to buy', '자리 찾는 중': 'finding a seat', '먹는 중': 'eating', '주문 중': 'ordering', '😋 잘 먹었습니다!': '😋 That was good!',
+    '아메리카노': 'Americano', '김밥': 'Gimbap', '라면': 'Ramen', '치킨': 'Fried chicken', '피자': 'Pizza', '초밥': 'Sushi', '한우 오마카세': 'Hanwoo omakase',
+    '구내식당 배식대': 'Cafeteria counter', '1F 카페': '1F Café', '루프탑 카페': 'Rooftop café', '커피 바': 'Coffee bar', '지하매점': 'Basement store', 'B1 구내식당': 'B1 Cafeteria' });
+  const ERRAND_FOOD = new Set(['coffee', 'kimbap', 'ramen', 'chicken', 'pizza', 'sushi', 'hanwoo']);   // 사러 가는 음식 (economy.mjs SHOP 의 food)
   function placeOf(s) {
     if (s.place) return s.place;
     const title = String(s.title || '');
@@ -55,8 +59,8 @@
       this.sessions = [];
       this.byId = new Map();
       this.first = true;
-      this.claims = { rest: new Map(), hot: new Map(), meet: new Map(), visit: new Map(), jail: new Map(), vault: new Map(), spot: new Map(), under: new Map() };
-      this.opts = { labels: true, bubbles: true, lines: true, rank: true, sky: 'auto' };
+      this.claims = { rest: new Map(), hot: new Map(), meet: new Map(), visit: new Map(), jail: new Map(), vault: new Map(), spot: new Map(), under: new Map(), shop: new Map(), eat: new Map() };
+      this.opts = { labels: true, bubbles: true, lines: true, rank: true, sky: 'auto', autoFocus: 'floor', afQuiet: '20' };   // autoFocus: off · floor(층 비추기) · follow(따라가기) · afQuiet: 내가 화면을 만진 뒤 몇 초 동안은 자동으로 안 움직임
       this.selected = null;
       this.hover = null;
       this.hits = [];
@@ -86,11 +90,14 @@
 
     styleFor(provider, id, opt = {}) {
       const pv = AIO.provider(provider);
+      const gender = opt.gender || null;
       const r = AIO.rand(AIO.hash(id));
       const yarns = [pv.yarn, '#f4ead8', '#f1ece4', '#efe4d2'];
       const hats = opt.member ? MEMBER_HATS : pv.hats;
       const hat = hats[Math.floor(r() * hats.length)];
       const st = { yarn: yarns[Math.floor(r() * yarns.length)], accent: opt.accent || pv.accent, accent2: pv.accent2, hat: opt.hat || hat, glasses: r() < 0.18 && hat !== 'shades', stripe: r() < 0.5, vest: null, tie: opt.intern ? null : (opt.accent || pv.accent) };
+      st.gender = gender; st.hair = ['#6b4a2e', '#3b2a1e', '#a8743d', '#2b2622', '#c99a5b'][Math.floor(r() * 5)];
+      if (gender === 'F') st.tie = null;   // 여성은 넥타이 대신 리본 장식(머리)
       st.factory = { ...st, hat: 'hardhat', hardhat: opt.intern ? '#ffffff' : opt.member ? '#f2c230' : pv.accent, vest: opt.intern ? '#f2c230' : '#ff8a3d', tie: null };
       return st;
     }
@@ -130,7 +137,7 @@
       slotSync(this.slots.partner, partners);
 
       const counters = {};
-      for (const s of sessions.slice().sort((a, b) => a.startedAt - b.startedAt)) {
+      for (const s of (state.allSessions || sessions).slice().sort((a, b) => a.startedAt - b.startedAt)) {   // 코드(C12 …)는 보기 필터와 상관없이 전체 기준 — 걸러도 번호가 안 바뀐다
         const sh = AIO.provider(s.provider).short;
         counters[sh] = (counters[sh] || 0) + 1;
         this.codes.set(s.id, sh + counters[sh]);
@@ -162,6 +169,7 @@
         this.sig = sig;
         this.S = AIO.maps ? AIO.maps.build(AIO.maps.current, spec) : AIO.campus.build(spec);
         this.applyBuildingCfg(this.S);
+        if (AIO.skins) AIO.skins.decorate(this.S);        // 🎨 테마 소품 (호박 · 트리 · 수정 …)
         this.spotsByLv = null; this.outSpots = null;
         this.caches.clear(); this.chunks.clear(); this.sprites.clear(); this.px = 0;
         for (const m of Object.values(this.claims)) m.clear();
@@ -170,6 +178,7 @@
           e.rest = e.hotKey = e.meet = e.visit = e.jailSpot = e.vaultSpot = e.spotClaim = null;
           if (e.leaving || (e.kind === 'intern' && e.finishing)) { this.ents.delete(id); continue; }
           e.busy = false; e.onArrive = null; e.waitUntil = 0; e.afterWait = null; e.carry = null; e.pendingReport = false; e.plan = []; e.inCab = false; e.cwWait = 0;
+          e.errand = null; e.shopSpot = null; e.eatSpot = null; e.carryUntil = 0;
           e.spot = null;
           if (AMBIENT.has(e.kind)) { e.lv = 0; e.target = null; e.nextAt = this.t + Math.random() * 3; if (e.hidden) { e.hidden = false; e.alpha = 0; e.entering = true; } continue; }
           const want = this.desiredSpot(e);
@@ -325,9 +334,13 @@
         seen.add(id);
         let e = this.ents.get(id);
         const kind = s.kind === 'app' ? 'visitor' : 'main';
-        if (!e) { e = this.spawn(id, { kind, sid: s.id, style: this.styleFor(s.provider, s.id) }, null); if (this.first) { const sp = this.desiredSpot(Object.assign(e, { s, seatKey: id })); if (sp) this.place(e, sp); } }
+        const gz = (s.persona && s.persona.gender) || null;
+        const lookKey = (s.look ? `${s.look.hat}|${s.look.accent}` : '') + '|' + (gz || '');
+        const lookOpt = { ...(s.look ? { hat: s.look.hat || undefined, accent: s.look.accent } : {}), gender: gz };
+        if (!e) { e = this.spawn(id, { kind, sid: s.id, style: this.styleFor(s.provider, s.id, lookOpt) }, null); if (this.first) { const sp = this.desiredSpot(Object.assign(e, { s, seatKey: id })); if (sp) this.place(e, sp); } }
         if (e.leaving) { e.leaving = false; e.fading = false; e.alpha = 1; e.busy = false; }
         e.s = s; e.seatKey = id;
+        if ((e.lookKey || '') !== lookKey) { e.lookKey = lookKey; e.style = this.styleFor(s.provider, s.id, lookOpt); if (s.look && s.look.hat === null) { e.style.hat = null; e.style.factory.hat = 'hardhat'; } }
         if (e.status !== s.status) {
           if (e.status && s.status === 'done') e.cheerUntil = t + 6;
           e.status = s.status; e.statusAt = t;
@@ -609,7 +622,7 @@
         const pl = s ? placeOf(s) : 'active';
         // 빌딩 관리: 강제 배치(고정)는 무엇보다 먼저 · 원하는 동작(휴식/밖/회의/자리) 다음
         const ctl = s && s.ctl;
-        if (ctl && ctl.assign && ctl.lock) { const a = this.assignedSpot(ctl.assign); if (a) { e.tier = null; return a; } }
+        if (ctl && ctl.assign && ctl.lock && pl !== 'jail' && pl !== 'dungeon' && pl !== 'vault') { const a = this.assignedSpot(ctl.assign); if (a) { e.tier = null; return a; } }   // 감옥 · 던전 · 금고가 고정 자리보다 먼저
         if (ctl && ctl.action && ctl.action !== 'auto' && pl !== 'jail' && pl !== 'vault' && pl !== 'dungeon') { const a = this.actionSpot(e, ctl.action); if (a) { e.tier = null; return a; } }
         if (S.mini && s) {
           // 귀중한 세션 → 금고 · 오래 안 쓸수록 지하휴게실 → 지하숙소 → 감옥 · 실적 좋은 세션은 휴식 때 숙소
@@ -622,9 +635,13 @@
           else if (pl === 'stopped') tier = idleH < 6 ? 'underRest' : idleH < 24 ? 'underDorm' : 'jail';   // 오래 방치돼도 자동으론 감옥까지
           if (e.tier !== tier) { if (e.tierSpot && this.claims.under.get(e.tierSpot) === e.id) this.claims.under.delete(e.tierSpot); e.tierSpot = null; e.tier = tier; }
           if (tier) {
-            const list = tier === 'vault' ? S.vault : tier === 'jail' ? S.jail : tier === 'dungeon' ? S.dungeon : S[tier];
-            const sp = this.claim(this.claims.under, list, e, 'tierSpot');
-            if (sp) return sp;
+            // 자리가 다 차면 이웃한 지하층으로 (지하휴게실 ↔ 지하숙소, 감옥이 차면 숙소 · 휴게실) — 그래도 없으면 자기 책상에서 존다
+            const NEXT = { underRest: ['underDorm'], underDorm: ['underRest'], jail: ['underDorm', 'underRest'] };
+            for (const k of [tier, ...(NEXT[tier] || [])]) {
+              const list = k === 'vault' ? S.vault : k === 'jail' ? S.jail : k === 'dungeon' ? S.dungeon : S[k];
+              const sp = this.claim(this.claims.under, list, e, 'tierSpot');
+              if (sp) { e.tierShown = (list || []).includes(sp) ? k : e.tierShown || tier; return sp; }
+            }
           }
           if (pl === 'paused') { const d = this.dormOf(e); if (d) { e.inDorm = true; return d; } }
           e.inDorm = false;
@@ -654,6 +671,93 @@
       if (e.kind === 'intern') return this.hotSpot(e);
       return null;
     }
+
+
+    // ------------------------------------------------------------ 🍽️ 사 먹기: 산 음식은 파는 곳에 가서 주문하고, 밥은 식당 자리에서 먹고 돌아온다
+    //   아메리카노 → 카페(1F · 루프탑 중 가까운 곳, 없으면 층 커피 바) → 들고 자리로 · 김밥 → 매점 · 그 밖의 음식 → 구내식당 배식대 → 식탁에서 먹기
+    //   맵에 파는 곳 표시(S.shops)가 없으면 카페 카운터 · 배식대 · 계산대 가구 앞을 자동으로 찾는다. 그것도 없으면 예전처럼 자리에서 말풍선만.
+    shopsOf() {
+      const S = this.S;
+      if (S._shops) return S._shops;
+      const list = (S.shops || []).slice();
+      if (!list.length) {
+        const KIND = { cafeCounter: 'cafe', kitchenLine: 'food', ia_mealCounter: 'food', till: 'store' };
+        for (const L of S.levels) for (const f of L.furniture || []) {
+          const k = KIND[f.type]; if (!k || !L.W) continue;
+          const w = f.w || 2;
+          for (const dx of w >= 4 ? [w * 0.3, w * 0.7] : [w / 2]) {
+            const gx = Math.floor(f.x + dx), gy = Math.floor(f.y + 1.6);
+            const [tx, ty] = AIO.layout.nearestWalkable(L, gx, gy);
+            if (Math.abs(tx - gx) + Math.abs(ty - gy) > 2) continue;
+            list.push({ kind: k, lv: L.idx, x: tx + 0.5, y: ty + 0.5, face: '-y', pose: 'stand', tag: L.name });
+          }
+        }
+      }
+      S._shops = list;
+      return list;
+    }
+    shopFor(e, item) {
+      const S = this.S, all = this.shopsOf();
+      if (!all.length) return null;
+      const ORDER = { coffee: ['cafe', 'bar', 'store'], kimbap: ['store', 'food'] };
+      const kinds = ORDER[item.id] || ['food', 'store'];
+      const fi = (lv) => { const L = S.levels[lv || 0]; return L && L.floorIdx != null ? L.floorIdx : -50; };
+      const here = e.lv || 0;
+      for (const k of kinds) {
+        const c = all.filter((sp) => sp.kind === k);
+        if (!c.length) continue;
+        const dist = (sp) => (sp.lv === here ? 0 : 1 + Math.abs(fi(sp.lv) - fi(here)));
+        const best = Math.min(...c.map(dist));
+        const near = c.filter((sp) => dist(sp) === best);
+        return this.claim(this.claims.shop, near, e, 'shopSpot') || near[e.seed % near.length];
+      }
+      return null;
+    }
+    eatSeat(e, shop) {
+      const S = this.S;
+      let list = (S.eat || []).filter((sp) => sp.lv === shop.lv);
+      if (!list.length) list = S.eat || [];
+      if (!list.length) list = S.rest.filter((sp) => sp.lv === shop.lv && sp.pose === 'sit' && !this.claims.rest.has(sp));
+      return this.claim(this.claims.eat, list, e, 'eatSpot');
+    }
+    /** 새로 산 게 있으면 심부름 시작 — true 면 이번 프레임은 심부름이 맡는다 */
+    errandCheck(e) {
+      const w = e.s && e.s.wallet, last = w && w.last;
+      if (!last || !last.at) return false;
+      if (e.buyAt == null) { e.buyAt = last.at; return false; }          // 화면을 처음 열었을 때 예전 구매는 다시 안 한다
+      if (last.at <= e.buyAt) return false;
+      e.buyAt = last.at;
+      if (!ERRAND_FOOD.has(last.id) || Date.now() - last.at > 60000) return false;
+      const pl = placeOf(e.s);
+      if ((pl !== 'active' && pl !== 'paused') || e.tier || AIO.isUrgent(e.s.status)) return false;   // 감옥 · 금고 · 중단 · 결정 대기 중엔 자리에서 받기만
+      const item = { id: last.id, icon: last.icon, name: last.name };
+      const shop = this.shopFor(e, item);
+      if (!shop) return false;
+      e.errand = { item, phase: 'go', shop };
+      e.busy = true; e.carry = null; e.carryUntil = 0;
+      this.goTo(e, { ...shop, pose: 'stand' }, () => {
+        if (!e.errand) return;
+        e.errand.phase = 'order';
+        e.say = { text: `${item.icon} ${T(item.name)} ${T('주세요!')}`, until: this.t + 2.4 };
+        e.waitUntil = this.t + 2.8;
+        e.afterWait = () => {
+          if (!e.errand) return;
+          this.release(this.claims.shop, e, 'shopSpot');
+          e.say = { text: `${item.icon} ${T(item.name)} ${T('샀어요!')}`, until: this.t + 2.6 };
+          const seat = item.id !== 'coffee' && this.eatSeat(e, shop);
+          if (!seat) { this.endErrand(e, item.id === 'coffee' ? 'mug' : 'tray', item.id === 'coffee' ? 45 : 20); return; }
+          e.carry = 'tray'; e.errand.phase = 'carry';
+          this.goTo(e, seat, () => {
+            if (!e.errand) return;
+            e.errand.phase = 'eat';
+            e.waitUntil = this.t + 16 + (e.seed % 9);
+            e.afterWait = () => { this.release(this.claims.eat, e, 'eatSpot'); e.say = { text: T('😋 잘 먹었습니다!'), until: this.t + 2.5 }; this.endErrand(e, null, 0); };
+          });
+        };
+      });
+      return true;
+    }
+    endErrand(e, carry, secs) { e.errand = null; e.busy = false; e.carry = carry; e.carryUntil = carry ? this.t + secs : 0; }
 
     // ------------------------------------------------------------ route planning (floors, doors, elevators)
     neighbours(lv) {
@@ -726,6 +830,7 @@
 
     leave(e) {
       e.leaving = true; e.busy = true;
+      if (e.errand) { e.errand = null; e.waitUntil = 0; e.afterWait = null; this.release(this.claims.shop, e, 'shopSpot'); this.release(this.claims.eat, e, 'eatSpot'); }
       for (const [k, f] of [['rest', 'rest'], ['meet', 'meet'], ['visit', 'visit'], ['jail', 'jailSpot'], ['vault', 'vaultSpot']]) this.release(this.claims[k], e, f);
       if (e.hotKey) { this.claims.hot.delete(e.hotKey); e.hotKey = null; }
       this.goTo(e, { ...this.S.door, pose: 'stand' }, () => { e.fading = true; });
@@ -984,7 +1089,9 @@
           continue;
         }
         if (AMBIENT.has(e.kind)) { this.stepAmbient(e, t); continue; }
+        if (e.carryUntil && this.t > e.carryUntil) { e.carry = null; e.carryUntil = 0; }   // 사 온 커피 · 도시락은 한동안 들고 있다가 내려놓는다
         if (e.busy) continue;
+        if (e.kind === 'main' && this.errandCheck(e)) continue;
         if (e.pendingReport) {
           if (e.kind === 'member') { this.reportTo(e, () => this.goTo(e, this.desiredSpot(e))); continue; }
           if (e.kind === 'intern') { if (e.hotKey) { this.claims.hot.delete(e.hotKey); e.hotKey = null; } this.reportTo(e, () => this.leave(e)); continue; }
@@ -998,11 +1105,22 @@
     // ------------------------------------------------------------ view helpers
     night() {
       const sky = this.opts.sky;
-      const h = sky === 'day' ? 12 : sky === 'night' ? 23 : sky === 'dusk' ? 18 : new Date().getHours() + new Date().getMinutes() / 60;
-      if (h >= 19.5 || h < 5.5) return { dark: 0.3, sky: ['#1d2547', '#3a4170'], bld: '#2a3052', stars: true, lamps: true, night: true };
-      if (h >= 17.5) return { dark: 0.12, sky: ['#f2a07b', '#f8d3a8'], bld: '#b9a1a0', lamps: true };
-      if (h < 7.5) return { dark: 0.1, sky: ['#f7c59f', '#fde6c8'], bld: '#c9b6a6', lamps: true };
-      return { dark: 0, sky: ['#a9d4f5', '#e3f2fb'], bld: '#c8d3dc', cloud: true };
+      const h = sky === 'day' ? 12 : sky === 'night' ? 23 : sky === 'dusk' ? 18 : sky === 'dawn' ? 6.5 : new Date().getHours() + new Date().getMinutes() / 60;   // auto = 지금 시각
+      // phase: 시간대 · bg: 캔버스 배경 하늘 · tint: 맵 전체에 곱하기(multiply)로 거는 빛 색 · dark: 밤 어둠 · sky: 창밖 하늘
+      if (h >= 19.5 || h < 5.5) return { phase: 'night', dark: 0.3, bg: ['#141a3a', '#2c3566'], sky: ['#1d2547', '#3a4170'], bld: '#2a3052', stars: true, lamps: true, night: true };
+      if (h >= 17.5) return { phase: 'dusk', dark: 0.12, tint: '#ffcfa6', bg: ['#6b5aa6', '#f7a76c'], sky: ['#f2a07b', '#f8d3a8'], bld: '#b9a1a0', lamps: true };
+      if (h < 7.5) return { phase: 'dawn', dark: 0.08, tint: '#ffe4d2', bg: ['#a9b9e8', '#ffd9bd'], sky: ['#f7c59f', '#fde6c8'], bld: '#c9b6a6', lamps: true };
+      return { phase: 'day', dark: 0, bg: ['#8ec8f2', '#e4f3fc'], sky: ['#a9d4f5', '#e3f2fb'], bld: '#c8d3dc', cloud: true };
+    }
+
+    /** 🌗 시간대 빛: 노을 · 아침은 따뜻한 색을 곱하고, 밤은 남색으로 어둡게 — 화면 전체(배경 하늘 포함)에 한 번에 */
+    drawLight(ctx, N) {
+      if ((!N.tint && !(N.dark > 0)) || !ctx.canvas) return;
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const w = ctx.canvas.width, h = ctx.canvas.height;
+      if (N.tint) { ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = N.tint; ctx.fillRect(0, 0, w, h); ctx.globalCompositeOperation = 'source-over'; }
+      if (N.night) { ctx.fillStyle = `rgba(22,26,58,${N.dark})`; ctx.fillRect(0, 0, w, h); }
+      ctx.restore();
     }
 
     ownerOfSeat(key) {
@@ -1041,6 +1159,7 @@
       if (e.kind === 'npc') return e.spot === e.def.home || (e.pi === 0 && !e.plan.length) ? (e.def.anim || 'idle') : 'idle';
       if (e.kind === 'family') return e.kid && e.spot && !e.spot.seats && (e.spot.ball || e.spot.slide) ? 'cheer' : 'idle';
       if (e.kind === 'walker') return 'idle';
+      if (e.errand && e.errand.phase === 'eat') return 'idle';
       if (e.waitUntil) return e.kind === 'main' ? 'cheer' : 'wave';
       if (e.kind === 'member') return e.status === 'working' ? (e.agent?.activity?.type === 'think' ? 'think' : 'type') : e.s?.status === 'sleeping' || placeOf(e.s || {}) === 'stopped' ? 'sleep' : 'idle';
       if (e.kind === 'intern') return e.status === 'working' ? 'type' : 'idle';
@@ -1074,7 +1193,8 @@
     buildCache(L) {
       const lb = this.levelBox(L);
       const bw = lb.maxX - lb.minX, bh = lb.maxY - lb.minY;
-      const s = Math.min(2.2, 5200 / Math.max(bw, bh));
+      const X = AIO.pxw && AIO.pxw.on() ? AIO.pxw : null;      // 👾 도트 세트: 도트 하나(2.6px)가 캔버스 1px
+      const s = X ? 1 / X.PX : Math.min(2.2, 5200 / Math.max(bw, bh));
       const c = document.createElement('canvas');
       c.width = Math.ceil(bw * s); c.height = Math.ceil(bh * s);
       const g = c.getContext('2d');
@@ -1083,7 +1203,8 @@
       const floorBase = L.floorColor || { wood: '#eadcc3', concrete: '#c9c8c3', deck: '#c9a57a', marble: '#f1eee8' }[L.floor] || '#eadcc3';
       A2.slab(g, L, L.outer === 'factory' ? '#9aa2a9' : L.outer === 'roof' ? '#b9b1a4' : '#d4c3a3');
       A2.floor(g, 0, 0, W, H, L.floor, floorBase, L.idx + 3);
-      for (const p of L.patches) A2.floor(g, p.x, p.y, p.w, p.d, p.style, p.color, Math.round(p.x * 7 + p.y));
+      if (X) X.floorTex(g, 0, 0, W, H, L.floor);
+      for (const p of L.patches) { A2.floor(g, p.x, p.y, p.w, p.d, p.style, p.color, Math.round(p.x * 7 + p.y)); if (X) X.floorTex(g, p.x, p.y, p.w, p.d, p.style); }
       for (const d of L.decals || []) {
         if (d.type === 'hazard') A2.hazardRect(g, d.x, d.y, d.w, d.d);
         else if (d.type === 'lane') A2.lane(g, d.x, d.y, d.w, d.d);
@@ -1094,7 +1215,7 @@
         else A5.decal(g, d);
       }
       for (const r of L.rugs) A.rug(g, r.x, r.y, r.w, r.d, r.color, r.border);
-      if (L.outer !== 'none') A2.outerWalls(g, L, L.outer, WALL);
+      if (L.outer !== 'none') { A2.outerWalls(g, L, L.outer, WALL); if (X) X.wallTex(g, L, L.outer, WALL); }
       if (L.indoor) A2.outerWalls(g, { W: L.indoor.x1, H: L.indoor.y1 }, 'premium', WALL);
       const wy = L.wallY;
       if (wy && L.outer !== 'roof') {
@@ -1102,7 +1223,8 @@
         if (wy.banner != null) A2.banner(g, wy.banner, '🦺 안전제일 · 검수는 다른 AI가');
         if (wy.menu != null) A3.menuBoard(g, wy.menu);
       }
-      this.caches.set(L.idx, { c, x: lb.minX, y: lb.minY, w: bw, h: bh, hour: new Date().getHours() });
+      if (X) { g.setTransform(1, 0, 0, 1, 0, 0); X.crisp(c, false); }
+      this.caches.set(L.idx, { c, x: lb.minX, y: lb.minY, w: bw, h: bh, hour: new Date().getHours(), px: !!X });
     }
     levelBox(L) {
       const b = [P(0, 0, 130), P(L.W, 0, 130), P(0, L.H, 0), P(L.W, L.H, -20), P(L.W, 0, -20), P(0, L.H, -20)];
@@ -1156,6 +1278,7 @@
         const list = OUT.furniture.filter((f) => f.x >= R.x0 && f.x < R.x1 && f.y >= R.y0 && f.y < R.y1).sort((a, b) => sortKey(a) - sortKey(b));
         for (const f of list) this.drawFurniture(g, f, I, 0);
       }
+      if (AIO.pxw && AIO.pxw.on() && Math.abs(s - 1 / AIO.pxw.PX) < 1e-6) AIO.pxw.crisp(c, false);   // 👾 도트 세트
       return this.remember(this.chunks, key, { c, x: minX, y: minY, w: maxX - minX, h: maxY - minY, s });
     }
 
@@ -1172,9 +1295,18 @@
       const g = c.getContext('2d');
       g.setTransform(s, 0, 0, s, -minX * s, -minY * s);
       if (o.kind === 'campus' || o.kind === 'shop') A6.campusBuilding(g, { ...o, style: o.kind === 'shop' ? 'shop' : o.style, floors: o.kind === 'shop' ? 2 : o.floors, name: T(o.name) }, night);
-      return this.remember(this.sprites, key, { c, x: minX, y: minY, w: maxX - minX, h: maxY - minY, s });
+      const px = AIO.pxw && AIO.pxw.on() && Math.abs(s - 1 / AIO.pxw.PX) < 1e-6;
+      if (px) AIO.pxw.crisp(c, true);
+      return this.remember(this.sprites, key, { c, x: minX, y: minY, w: maxX - minX, h: maxY - minY, s, px });
     }
 
+    /** 층 강조 설정 (계정 옵션 › 맵 표시) — 세션 수 기준 3단계 + 외벽 효과 */
+    heatCfg() {
+      const h = this.opts.heat || {};
+      const t = Array.isArray(h.t) && h.t.length === 3 ? h.t.map((x) => Math.max(1, +x || 1)) : [1, 5, 10];
+      return { on: h.on !== false, t, speed: Math.max(0.3, Math.min(3, +h.speed || 1)), fx: { tint: true, blink: true, neon: true, count: true, wave: false, rainbow: false, ...(h.fx || {}) } };
+    }
+    heatOf(n, cfg = this.heatCfg()) { return !cfg.on || !n ? 0 : n >= cfg.t[2] ? 3 : n >= cfg.t[1] ? 2 : n >= cfg.t[0] ? 1 : 0; }
     floorInfo(b) {
       return b.levels.map((lv) => {
         let people = 0, busy = 0, urgent = 0;
@@ -1212,7 +1344,10 @@
 
       // ---- ground chunks
       const want = Math.min(1, z * dpr);
-      const bucket = BUCKETS.reduce((b, x) => (x >= want * 0.92 ? x : b), 1);
+      let bucket = BUCKETS.reduce((b, x) => (x >= want * 0.92 ? x : b), 1);
+      const pxOn = AIO.pxw && AIO.pxw.on();
+      if (pxOn) bucket = Math.min(bucket, 1 / AIO.pxw.PX);          // 👾 도트 세트: 땅 · 건물도 도트 격자로
+      ctx.imageSmoothingEnabled = !pxOn;
       poly(ctx, [P(0, 0), P(OUT.W, 0), P(OUT.W, OUT.H), P(0, OUT.H)], (OUT.ground && OUT.ground.base && OUT.ground.base.color) || '#a9d18e');
       ctx.globalAlpha = dim;
       const ncx = Math.ceil(OUT.W / CH), ncy = Math.ceil(OUT.H / CH);
@@ -1226,6 +1361,7 @@
       order.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
       for (const [cx, cy] of order) { const C = this.chunk(cx, cy, bucket, low); if (C) ctx.drawImage(C.c, C.x, C.y, C.w, C.h); }
       ctx.globalAlpha = 1;
+      ctx.imageSmoothingEnabled = true;
 
       const urgent = this.sessions.filter((s) => AIO.isUrgent(s.status));
       const I = { nightInfo, busyAny: this.sessions.some((s) => AIO.isBusy(s.status)), rules: this.rulesText(), urgent, coats: this.sessions.slice(0, 4).map((s) => AIO.provider(s.provider).accent), low };
@@ -1240,7 +1376,9 @@
       }
 
       // ---- occluders (buildings) + everything outdoors, painter-sorted per building slot
-      const occ = S.occ.filter((o) => { const [a] = P(o.x, o.y + o.H), [b2] = P(o.x + o.W, o.y); const [, top] = P(o.x, o.y, 600); const [, bot] = P(o.x + o.W, o.y + o.H); return b2 > view.l - 50 && a < view.r + 50 && bot > view.t - 50 && top < view.b + 50; })
+      // 건물 높이: 높은 빌딩은 층수만큼 (예전엔 600px 고정이라, 20층 넘는 꼬마빌딩 옥상을 크게 확대하면 건물이 '화면 밖' 으로 판정돼 통째로 사라졌다)
+      const tallOf = (o) => (o.bld && o.bld.type === 'tower' ? Math.max(600, (o.bld.levels.length - (o.bld.base || 0)) * (S.FLOOR_PX || 58) + 260) : 600);
+      const occ = S.occ.filter((o) => { const [a] = P(o.x, o.y + o.H), [b2] = P(o.x + o.W, o.y); const [, top] = P(o.x, o.y, tallOf(o)); const [, bot] = P(o.x + o.W, o.y + o.H); return b2 > view.l - 50 && a < view.r + 50 && bot > view.t - 50 && top < view.b + 50; })
         .sort((a, b) => (a.x + a.W + a.y + a.H) - (b.x + b.W + b.y + b.H));
       const slots = occ.map(() => []), inner = occ.map(() => []), after = [];
       const put = (x, y, item) => {
@@ -1293,15 +1431,17 @@
       }
 
       const drawOut = (list) => {
-        list.sort((a, b) => a.k - b.k);
+        this.depthSort(list, I, 0, low);
         ctx.globalAlpha = dim;
         for (const it of list) {
+          // 👾 도트 세트: 움직이는 것들도 매 프레임 도트 격자에 찍는다 (ttl 0)
+          const box = (x, y, w, h) => { const [sx, sy] = P(x, y); return [sx - w, sy - h, sx + w, sy + 40]; };
           if (it.f) this.drawF(ctx, it, I, 0);
-          else if (it.car) A6.vehicle(ctx, it.car.x, it.car.y, it.car.c.axis, it.car.c.dir, it.car.c.color, it.car.c.kind, t);
-          else if (it.bus) A5.bus(ctx, it.bus.x, it.bus.y, 1, t, it.bus.doors);
-          else if (it.truck) { const { tr, p } = it.truck; A6.truck(ctx, p.x, p.y, p.axis, p.dir, tr.color, tr.kind, { beacon: p.seg.reverse || p.seg.loading, t }); if (p.seg.reverse && !low) A.bubble(ctx, ...P(p.x + 1, p.y + 0.6, 50), '🔙 삐- 삐-', { t }); }
-          else if (it.goose) A6.goose(ctx, it.goose.x, it.goose.y, it.goose.dir, t, it.goose.i);
-          else if (it.jogger) { if (!low) A.character(ctx, { sx: P(it.jogger.x, it.jogger.y)[0], sy: P(it.jogger.x, it.jogger.y)[1], style: this.npcStyle(500 + it.jogger.i, { hat: 'headphones' }), pose: 'walk', dir: it.jogger.dir, anim: 'idle', t: t * 1.4 + it.jogger.i, seed: it.jogger.i, scale: 0.92 }); }
+          else if (it.car) this.pxWrap(ctx, it.car.c, box(it.car.x, it.car.y, 120, 120), (c) => A6.vehicle(c, it.car.x, it.car.y, it.car.c.axis, it.car.c.dir, it.car.c.color, it.car.c.kind, t), 0);
+          else if (it.bus) this.pxWrap(ctx, it.bus, box(it.bus.x, it.bus.y, 260, 200), (c) => A5.bus(c, it.bus.x, it.bus.y, 1, t, it.bus.doors), 0);
+          else if (it.truck) { const { tr, p } = it.truck; this.pxWrap(ctx, tr, box(p.x, p.y, 280, 220), (c) => A6.truck(c, p.x, p.y, p.axis, p.dir, tr.color, tr.kind, { beacon: p.seg.reverse || p.seg.loading, t }), 0); if (p.seg.reverse && !low) A.bubble(ctx, ...P(p.x + 1, p.y + 0.6, 50), '🔙 삐- 삐-', { t }); }
+          else if (it.goose) this.pxWrap(ctx, 'goose' + it.goose.i, box(it.goose.x, it.goose.y, 40, 50), (c) => A6.goose(c, it.goose.x, it.goose.y, it.goose.dir, t, it.goose.i), 0);
+          else if (it.jogger) { if (!low) { const [jx, jy] = P(it.jogger.x, it.jogger.y), je = { sx: jx, sy: jy, style: this.npcStyle(500 + it.jogger.i, { hat: 'headphones' }), pose: 'walk', dir: it.jogger.dir, anim: 'idle', t: t * 1.4 + it.jogger.i, seed: 500 + it.jogger.i, scale: 0.92, kind: 'npc', moving: true, id: 'jog' + it.jogger.i }; if (!(AIO.skins && AIO.skins.sprite(ctx, je, jx, jy, je.t, 1))) A.character(ctx, je); } }
           else this.drawEntity(ctx, it.e, sel, t, 0, low);
         }
         ctx.globalAlpha = 1;
@@ -1325,7 +1465,7 @@
         if (a <= 0.01) return;
         if (o.kind === 'campus' || o.kind === 'shop') {
           const sp = this.sprite(o, bucket, !!nightInfo.night);
-          if (sp) { ctx.globalAlpha = a; ctx.drawImage(sp.c, sp.x, sp.y, sp.w, sp.h); ctx.globalAlpha = 1; }
+          if (sp) { ctx.globalAlpha = a; if (sp.px) ctx.imageSmoothingEnabled = false; ctx.drawImage(sp.c, sp.x, sp.y, sp.w, sp.h); ctx.imageSmoothingEnabled = true; ctx.globalAlpha = 1; }
           return;
         }
         ctx.globalAlpha = a;
@@ -1344,10 +1484,8 @@
       }
 
       // night
+      this.drawLight(ctx, nightInfo);
       if (nightInfo.dark > 0) {
-        const bb = S.bounds;
-        ctx.fillStyle = `rgba(22,26,58,${nightInfo.dark})`;
-        ctx.fillRect(bb.minX - 400, bb.minY - 400, bb.maxX - bb.minX + 800, bb.maxY - bb.minY + 800);
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         for (const l of OUT.lamps) { if (!onScreen(l.x, l.y, 100)) continue; const [gx, gy] = P(l.x, l.y, 70); const gg = ctx.createRadialGradient(gx, gy, 4, gx, gy + 30, 120); gg.addColorStop(0, `rgba(255,214,140,${0.4 * nightInfo.dark / 0.3})`); gg.addColorStop(1, 'rgba(255,214,140,0)'); ctx.fillStyle = gg; ctx.fillRect(gx - 120, gy - 90, 240, 240); }
         if (v.focus && v.t > 0) { const b = S.buildings.find((x) => x.id === v.focus); const L = S.levels[this.displayedLevel(b)]; this.drawGlows(ctx, L, nightInfo); }
@@ -1400,9 +1538,8 @@
           ctx.globalAlpha = 1;
         }
       }
+      this.drawLight(ctx, nightInfo);   // 화면 전체(배경까지)에 걸어서 상자 모양 경계가 안 생긴다
       if (nightInfo.dark > 0) {
-        // darken only the floor plate (a full-screen tint would show as a box on the page background)
-        poly(ctx, [P(0, 0, 112), P(L.W, 0, 112), P(L.W, 0, -16), P(L.W, L.H, -16), P(0, L.H, -16), P(0, L.H, 112)], `rgba(22,26,58,${nightInfo.dark})`);
         {
           ctx.save(); ctx.globalCompositeOperation = 'lighter';
           for (const l of L.lamps) { const [gx, gy] = P(l.x, l.y, 60); const gg = ctx.createRadialGradient(gx, gy, 4, gx, gy + 20, 90); gg.addColorStop(0, `rgba(255,214,140,${0.35 * nightInfo.dark / 0.3})`); gg.addColorStop(1, 'rgba(255,214,140,0)'); ctx.fillStyle = gg; ctx.fillRect(gx - 90, gy - 70, 180, 180); }
@@ -1418,7 +1555,8 @@
       const S = this.S, v = this.view, t = this.t;
       const focused = v.focus === b.id;
       const tt = focused ? v.t : 0;
-      const info = { floorPx: S.FLOOR_PX, floors: this.floorInfo(b).map((f, i) => ({ ...f, tag: S.levels[b.levels[i]].short })), t, night: !!nightInfo.night, wallA: clamp01(1 - tt * 1.25), roofA: clamp01(1 - tt * 2), people: this.floorInfo(b).some((x) => x.people) };
+      const hc = this.heatCfg();
+      const info = { heat: hc, floorPx: S.FLOOR_PX, floors: this.floorInfo(b).map((f, i) => ({ ...f, heat: this.heatOf(f.people, hc), tag: S.levels[b.levels[i]].short })), t, night: !!nightInfo.night, wallA: clamp01(1 - tt * 1.25), roofA: clamp01(1 - tt * 2), people: this.floorInfo(b).some((x) => x.people) };
       ctx.save();
       if (!focused) ctx.globalAlpha = dim;
       if (b.type === 'tower') {
@@ -1445,7 +1583,8 @@
           }
           if (k === n) A5.parapet(ctx, b, n * S.FLOOR_PX);
         } else {
-          A5.towerFaces(ctx, b, info, 0, n);
+          const TH = (n + 2) * S.FLOOR_PX + 120, l = P(b.x, b.y + b.H)[0] - 40, r = P(b.x + b.W, b.y)[0] + 40, top = P(b.x, b.y, TH)[1], bot = P(b.x + b.W, b.y + b.H)[1] + 30;
+          this.pxWrap(ctx, 'tw' + b.id, [l, top, r, bot], (c) => A5.towerFaces(c, b, info, 0, n), 0.5);
           this.drawInterior(ctx, roofLv, 1, I, sel, nightInfo, I.low);
           A5.parapet(ctx, b, n * S.FLOOR_PX);
         }
@@ -1474,13 +1613,16 @@
       ctx.save();
       ctx.globalAlpha *= alpha;
       ctx.translate(...P(L.ox, L.oy, L.zBase || 0));
+      if (C.px) ctx.imageSmoothingEnabled = false;
       ctx.drawImage(C.c, C.x, C.y, C.w, C.h);
+      ctx.imageSmoothingEnabled = true;
       if (!staticOnly) {
-        this.drawWallDecor(ctx, L, nightInfo, I.urgent, t);
+        const lb = this.levelBox(L);
+        this.pxWrap(ctx, 'wd' + L.idx, [lb.minX, lb.minY, lb.maxX, lb.maxY], (c) => this.drawWallDecor(c, L, nightInfo, I.urgent, t), 1);
         const items = [];
         for (const f of L.furniture) pushF(items, f);
         for (const e of this.ents.values()) if ((e.lv || 0) === L.idx && e.alpha > 0.02 && !e.hidden) items.push({ k: e.x + e.y + 0.02, e });
-        items.sort((a, b) => a.k - b.k);
+        this.depthSort(items, I, L.idx);
         for (const it of items) {
           const za = zoneAlpha ? zoneAlpha(it) : 1;
           if (za < 0.02) continue;
@@ -1540,16 +1682,18 @@
         ctx.globalAlpha /= e.alpha || 1;
         return;
       }
-      if (e === sel || e.id === this.hover) {
+      const pulse = this.pulse && this.pulse.id === e.id && t < this.pulse.until;   // 🎯 자동 포커스 · 따라가기 대상 강조
+      if (e === sel || e.id === this.hover || pulse) {
         ctx.save(); ctx.translate(sx, sy); ctx.scale(1, 0.5);
         ctx.beginPath(); ctx.arc(0, 0, 19 * (e.scale || 1), 0, Math.PI * 2);
-        ctx.strokeStyle = e === sel ? '#f0a03c' : 'rgba(240,160,60,0.5)'; ctx.lineWidth = 3; ctx.setLineDash([6, 4]); ctx.lineDashOffset = -t * 20; ctx.stroke();
+        ctx.strokeStyle = e === sel || pulse ? '#f0a03c' : 'rgba(240,160,60,0.5)'; ctx.lineWidth = pulse && e !== sel ? 3 + Math.abs(Math.sin(t * 5)) * 2 : 3; ctx.setLineDash([6, 4]); ctx.lineDashOffset = -t * 20; ctx.stroke();
         ctx.restore();
       }
       const resting = e.spot && e.spot.carry && !e.plan.length;
       let carry = e.carry || (resting ? e.spot.carry : null);
       if (e.plan.length && e.walkCarry) carry = e.walkCarry;
-      const style = L.bld === 'factory' ? e.style.factory : e.style;
+      const style0 = L.bld === 'factory' ? e.style.factory : e.style;
+      const style = AIO.skins ? AIO.skins.dress(e, style0) : style0;   // 🎨 그래픽 테마 옷차림
       let z = 0;
       // kids on the swings ride the seat
       if (e.kind === 'family' && e.spot && e.spot.swing != null && !e.plan.length) {
@@ -1563,7 +1707,8 @@
       void z;
       ctx.save();
       ctx.globalAlpha *= e.alpha;
-      A.character(ctx, { sx, sy, style, pose: e.pose, dir: e.dir, anim: this.anim(e), t: t + e.seed, seed: e.seed, scale: e.scale, alpha: 1, carry });
+      if (!(AIO.skins && AIO.skins.sprite(ctx, { ...e, anim: this.anim(e) }, sx, sy, t + e.seed, 1)))   // 🎨 도트 세트면 도트 캐릭터
+        A.character(ctx, { sx, sy, style, pose: e.pose, dir: e.dir, anim: this.anim(e), t: t + e.seed, seed: e.seed, scale: e.scale, alpha: 1, carry });
       ctx.restore();
     }
 
@@ -1581,14 +1726,63 @@
       return { lead, working: members.filter((m) => m.status === 'working').length };
     }
 
-    drawF(ctx, it, I, lv) {
-      if (!it.clip) { this.drawFurniture(ctx, it.f, I, lv); return; }
-      ctx.save(); ctx.beginPath(); ctx.rect(it.clip[0], -1e7, it.clip[1] - it.clip[0], 2e7); ctx.clip();
-      this.drawFurniture(ctx, it.f, I, lv);
-      ctx.restore();
+    /** 🧱 그리는 순서: 바닥 상자로 앞뒤를 가린다 (depth.js) — 아주 멀리서 볼 때 · 물건이 너무 많을 때는 예전처럼 숫자 하나로 */
+    depthSort(list, I, lv, low) {
+      list.sort((a, b) => a.k - b.k);
+      const D = AIO.depth;
+      if (!D || low || this.opts.depth === false || list.length > 2500) return;
+      D.order(list, (it) => {
+        if (it.f) {
+          const f = it.f, m = D.furnBox(f, (c) => this.drawFurniture(c, f, I, lv));
+          if (!m || !m.b || it.si == null) return m;
+          // 길쭉한 가구를 한 칸씩 자른 조각: 그 칸만큼의 상자 · 화면 띠
+          const x0 = Math.max(m.b.x0, it.si === 0 ? -1e9 : f.x + it.si), x1 = Math.min(m.b.x1, it.si === it.sn - 1 ? 1e9 : f.x + it.si + 1);
+          if (x1 - x0 < 0.02 || !m.r) return null;
+          const l = Math.max(m.r[0], it.clip[0]), r = Math.min(m.r[2], it.clip[1]);
+          if (r <= l) return null;
+          return { b: { ...m.b, x0, x1 }, r: [l, m.r[1], r, m.r[3]] };
+        }
+        if (it.e) { const e = it.e, [sx, sy] = P(e.x, e.y, 0); return D.entBox(e.x, e.y, sx, sy, e.kind === 'pet' ? 0.5 : e.scale || 1); }
+        return null;
+      });
     }
 
+    drawF(ctx, it, I, lv) {
+      if (!it.clip) { this.drawFurniturePx(ctx, it.f, I, lv); return; }
+      ctx.save(); ctx.beginPath(); ctx.rect(it.clip[0], -1e7, it.clip[1] - it.clip[0], 2e7); ctx.clip();
+      this.drawFurniturePx(ctx, it.f, I, lv);
+      ctx.restore();
+    }
+    /** 👾 도트 세트면 가구도 도트(에셋 그림 · 도트 격자)로 — pixelworld.js */
+    drawFurniturePx(ctx, f, I, lv) {
+      const X = AIO.pxw;
+      if (X && X.on() && X.furniture(ctx, f, I, lv, this)) return;
+      this.drawFurniture(ctx, f, I, lv);
+    }
+    /** 👾 도트 세트면 fn 이 그리는 것을 도트 격자에 찍어서 붙인다 (key 마다 따로 기억 · ttl 초마다 새로 그림) */
+    pxWrap(ctx, key, rect, fn, ttl = 0.5) {
+      const X = AIO.pxw;
+      if (!X || !X.on()) { fn(ctx); return; }
+      this.pxOwners = this.pxOwners || new Map();
+      let o = typeof key === 'object' ? key : this.pxOwners.get(key);
+      if (!o) this.pxOwners.set(key, (o = {}));
+      if (!X.drawObj(ctx, o, rect, fn, ttl, false)) fn(ctx);
+    }
+
+    /** 영어 모드: 가구에 쓰인 글자(간판 · 메뉴판 · 칠판 · 계산대 이름 …)도 번역해서 그린다 (가구마다 한 번 만들어 둔다) */
+    furnEn(f) {
+      this.furnTr = this.furnTr || new WeakMap();
+      let g = this.furnTr.get(f);
+      if (!g) {
+        g = { ...f };
+        for (const k of ['label', 'text', 'title', 'sign', 'name']) if (typeof f[k] === 'string') g[k] = T(f[k]);
+        for (const k of ['lines', 'items']) if (Array.isArray(f[k])) g[k] = f[k].map((x) => (typeof x === 'string' ? T(x) : x));
+        this.furnTr.set(f, g);
+      }
+      return g;
+    }
     drawFurniture(ctx, f, I, lv) {
+      if (AIO.lang === 'en' && (f.label || f.text || f.title || f.lines || f.items || f.sign)) f = this.furnEn(f);
       const t = this.t;
       switch (f.type) {
         case 'desk': A.desk(ctx, f, this.screenFor(f)); break;
@@ -1970,9 +2164,9 @@
           let name, sub, opt = {};
           if (e.kind === 'main' || e.kind === 'visitor') {
             const pz = s.persona && this.opts.tagName !== 'title' ? s.persona : null;   // 캐릭터 이름 · 국기 (계정 옵션 › 맵 표시 › 이름표)
-            name = pz ? `${this.codes.get(s.id) || ''} ${pz.flag || ''} ${trunc(pz.name, 14)}` : `${this.codes.get(s.id) || ''} ${trunc(this.nameOf(s), 14)}`;
+            name = pz ? `${this.codes.get(s.id) || ''} ${pz.flag || ''} ${trunc(AIO.pname(pz), 14)}` : `${this.codes.get(s.id) || ''} ${trunc(this.nameOf(s), 14)}`;
             const pl = placeOf(s);
-            sub = `${e.kind === 'visitor' ? AIO.provider(s.provider).label : pl === 'paused' ? T('일시정지') : pl === 'stopped' ? T('중단') : pl === 'jail' ? T('🚔 수감') : pl === 'dungeon' ? T('🐉 던전 봉인') : pl === 'vault' ? T('🏦 금고 보관') : AIO.status(s.status).label} · ${this.opts.rank !== false && AIO.hr ? AIO.hr.short(e) + ' · ' : ''}Lv.${s.level || 1}${s.wallet && (s.wallet.home || s.wallet.car) ? ' ' + (s.wallet.home ? s.wallet.home.icon : '') + (s.wallet.car ? s.wallet.car.icon : '') : ''}`;
+            sub = `${e.kind === 'visitor' ? AIO.provider(s.provider).label : pl === 'paused' ? T('일시정지') : pl === 'stopped' ? T('중단') : pl === 'jail' ? T('🚔 수감') : pl === 'dungeon' ? T('🐉 던전 봉인') : pl === 'vault' ? T('🏦 금고 보관') : AIO.status(s.status).label} · ${this.opts.rank !== false && AIO.hr ? AIO.hr.short(e) + ' · ' : ''}Lv.${s.level || 1}${s.wallet && (s.wallet.home || s.wallet.car) ? ' ' + (s.wallet.home ? s.wallet.home.icon : '') + (s.wallet.car ? s.wallet.car.icon : '') : ''}${s.wallet && s.wallet.loan > 0 ? (s.wallet.status === '신용불량' ? ' 🚨' : ' 💸') : ''}`;
             opt = { dot: pl === 'paused' ? '#9ab' : pl === 'jail' ? '#2b3a67' : pl === 'vault' ? '#b8955f' : AIO.status(s.status).color, lead: s.kind === 'harness', selected: sel, dim: pl !== 'active' };
           } else if (e.kind === 'member') {
             name = trunc(e.name, 18);
@@ -2019,10 +2213,13 @@
       const t = this.t;
       if (e.say && t < e.say.until) return { text: T(e.say.text), force: true, border: '#f3c44b' };
       if (e.reply && t < e.reply.until) return { text: T(e.reply.text), force: true };
+      if (e.kind === 'main' && e.s && e.s.bubble && !e.plan.length) return { text: e.s.bubble, border: '#e2667f' };
+      if (e.kind === 'main' && e.s && e.s.wallet && e.s.wallet.status === '신용불량' && !e.plan.length && Math.floor(t + (e.seed || 0)) % 23 < 4) return { text: T('😰 빚 독촉 전화 받는 중…'), border: '#e5534b' };   // 직접 만든 캐릭터의 말풍선
       if (e.plan.length && !e.leaving) {
         if (e.inCab) return { text: T('🛗 이동 중') };
         if (e.cwWait && t - e.cwWait > 0.5 && e.pose === 'stand') return { text: T('🚦 신호 대기') };
         if (e.kind === 'intern' && !e.carry) return { text: T('🏃 출근!') };
+        if (e.errand) { const it = e.errand.item; return { text: e.errand.phase === 'go' ? `${it.icon} ${T(it.name)} ${T('사러 가는 중')} · ${T(e.errand.shop.tag || '')}` : `${it.icon} ${T('자리 찾는 중')}`, bg: '#fff3d6' }; }
         if (e.kind === 'main') {
           const pl = placeOf(e.s || {});
           if (pl === 'stopped') return { text: T('🏭 공장동으로') };
@@ -2043,8 +2240,10 @@
       if (!s) return null;
       const a = s.activity || {};
       const pl = placeOf(s);
-      { const w = e.kind === 'main' && e.s && e.s.wallet; if (w && w.last && Date.now() - w.last.at < 9000) return { text: `${w.last.icon} ${T(w.last.name)} ${T('샀어요!')}`, bg: '#fff3d6' }; }
-      if (this.S.mini && e.tier) return { text: T({ vault: '🔐 금고에 보관 중', underRest: '🛋️ 지하휴게실에서 대기', underDorm: '🛏️ 지하숙소에서 쉬는 중', jail: '⛓️ 지하 감옥 (오래 방치됨)', dungeon: '🐉 비밀던전에서 깊이 잠듦' }[e.tier]), bg: e.tier === 'vault' ? '#f6efd8' : '#e8ecf5' };
+      if (e.errand && e.errand.phase === 'eat') return { text: `${e.errand.item.icon} ${T(e.errand.item.name)} ${T('먹는 중')}`, bg: '#fff3d6' };
+      if (e.errand) return { text: `${e.errand.item.icon} ${T('주문 중')}`, bg: '#fff3d6' };
+      { const w = e.kind === 'main' && e.s && e.s.wallet; if (!e.errand && w && w.last && Date.now() - w.last.at < 9000) return { text: `${w.last.icon} ${T(w.last.name)} ${T('샀어요!')}`, bg: '#fff3d6' }; }
+      if (this.S.mini && e.tier) return { text: T({ vault: '🔐 금고에 보관 중', underRest: '🛋️ 지하휴게실에서 대기', underDorm: '🛏️ 지하숙소에서 쉬는 중', jail: '⛓️ 지하 감옥 (오래 방치됨)', dungeon: '🐉 비밀던전에서 깊이 잠듦' }[e.tierShown || e.tier]), bg: e.tier === 'vault' ? '#f6efd8' : '#e8ecf5' };
       if (this.S.mini && e.inDorm && e.spot && this.S.dorms && this.S.dorms.includes(e.spot)) return { text: `${T('🛏️ 숙소에서 휴식')} · ${e.spot.tag}`, bg: '#eef3f7' };
       if (pl === 'jail') return { text: T('🚔 유치장 수감 중'), bg: '#e8ecf5' };
       if (pl === 'vault') return { text: T('🔐 금고에 보관 중'), bg: '#f6efd8' };
@@ -2137,6 +2336,7 @@
   function trunc(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
   AIO.World = World;
+  World.pushF = pushF;   // 그리는 순서 점검 도구용
   AIO.trunc = trunc;
   AIO.placeOf = placeOf;
 })();
